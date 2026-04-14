@@ -75,10 +75,18 @@ const Cetak = () => {
   };
 
   const prosesCetak = (lap) => {
+    // Hapus iframe print lama jika masih ada
+    const oldIframe = document.getElementById('print-iframe');
+    if (oldIframe) {
+      document.body.removeChild(oldIframe);
+    }
+
     const iframe = document.createElement('iframe');
     iframe.style.display = 'none';
+    iframe.id = 'print-iframe';
     document.body.appendChild(iframe);
 
+    // Kirim data dan perintahkan iframe untuk print saat semua aset (terutama gambar) selesai dimuat
     const doc = iframe.contentWindow.document;
     doc.open();
     doc.write(`
@@ -97,23 +105,12 @@ const Cetak = () => {
             td { padding: 4px 0; vertical-align: top; }
           </style>
         </head>
-        <body>
+        <body onload="setTimeout(function() { window.focus(); window.print(); }, 500);">
           ${generateTemplateLaporan(lap)}
         </body>
       </html>
     `);
     doc.close();
-
-    // Tunggu aset logo termuat, lalu print
-    setTimeout(() => {
-      iframe.contentWindow.focus();
-      iframe.contentWindow.print();
-      
-      // Bersihkan iframe setelah dialog print tertutup
-      setTimeout(() => {
-        document.body.removeChild(iframe);
-      }, 1000);
-    }, 500);
   };
 
   const downloadPDF = (lap) => {
