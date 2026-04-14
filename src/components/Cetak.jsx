@@ -75,10 +75,44 @@ const Cetak = () => {
   };
 
   const prosesCetak = (lap) => {
-    const area = document.getElementById('area-cetak');
-    area.innerHTML = generateTemplateLaporan(lap);
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Cetak Laporan</title>
+          <style>
+            @media print {
+              @page { size: A4 portrait; margin: 20mm; }
+              body { margin: 0; padding: 0; }
+              .anti-potong { page-break-inside: avoid; break-inside: avoid; }
+            }
+            body { font-family: 'Times New Roman', Times, serif; font-size: 14px; padding: 20mm; background: white; color: black; }
+            table { width: 100%; border-collapse: collapse; margin-top: 15px; margin-bottom: 20px; }
+            td { padding: 4px 0; vertical-align: top; }
+          </style>
+        </head>
+        <body>
+          ${generateTemplateLaporan(lap)}
+        </body>
+      </html>
+    `);
+    doc.close();
+
+    // Tunggu aset logo termuat, lalu print
     setTimeout(() => {
-      window.print();
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+      
+      // Bersihkan iframe setelah dialog print tertutup
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+      }, 1000);
     }, 500);
   };
 
