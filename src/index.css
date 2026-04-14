@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+@theme {
+  --color-navy-dark: #0A2647;
+  --color-navy-main: #1B3C73;
+  --color-navy-light: #2A5499;
+  --color-amber-main: #F59E0B;
+  --color-amber-hover: #D97706;
+}
+
+@utility no-print {
+  @media print {
+    display: none !important;
+  }
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #f9fafb; /* gray-50 */
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #1B3C73; }
+
+/* Print Styles */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  body {
+    background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    font-family: 'Times New Roman', Times, serif !important;
+  }
+  #area-cetak, #area-cetak * {
+    visibility: visible;
+  }
+  #area-cetak {
+    display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    font-size: 12pt;
+    color: black;
+    background-color: white !important;
+  }
+  @page {
+    size: A4 portrait;
+    margin: 20mm;
+  }
+  .anti-potong {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}
