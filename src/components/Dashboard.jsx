@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useAppContext } from '../AppContext';
-import { PieChart, Table, RefreshCw, Calendar, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
+import { PieChart, Table, RefreshCw, Calendar, MapPin, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement } from 'chart.js';
 import { Doughnut, Bar } from 'react-chartjs-2';
 
@@ -10,25 +10,85 @@ const Dashboard = () => {
   const { dashboardData, loadDashboardData, isDataLoading } = useAppContext();
   const [filterBidang, setFilterBidang] = useState('Semua');
   const [filterStatus, setFilterStatus] = useState('Semua');
+  const [filterBulan, setFilterBulan] = useState('Semua');
+  const [filterStartDate, setFilterStartDate] = useState('');
+  const [filterEndDate, setFilterEndDate] = useState('');
+  
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const currentYear = new Date().getFullYear();
 
   const cleanText = (str) => (str ? str.toString().toLowerCase().replace(/\s+/g, ' ').trim() : "");
   const isPerluTindakLanjut = (str) => cleanText(str).includes('perlu tindak lanjut');
 
+  // Helper for date parsing (Format from sheet: DD/MM/YYYY)
+  const parseDateString = (dateStr) => {
+    if (!dateStr) return null;
+    const parts = dateStr.split('/');
+    if (parts.length === 3) {
+      return new Date(parts[2], parts[1] - 1, parts[0]);
+    }
+    return null;
+  };
+
+  // Filtered Table Data
+  const filteredData = useMemo(() => {
+    let data = dashboardData;
+    
+    if (filterBidang !== 'Semua') {
+      const filterVal = cleanText(filterBidang);
+      data = data.filter(item => cleanText(item['Bidang']) === filterVal);
+    }
+    if (filterStatus !== 'Semua') {
+      const isFilterPerlu = cleanText(filterStatus).includes('perlu tindak lanjut');
+      data = data.filter(item => isFilterPerlu ? isPerluTindakLanjut(item['Status Tindak Lanjut']) : !isPerluTindakLanjut(item['Status Tindak Lanjut']));
+    }
+    
+    if (filterBulan !== 'Semua' || filterStartDate || filterEndDate) {
+      data = data.filter(item => {
+        const itemDate = parseDateString(item['Tanggal Kegiatan']);
+        if (!itemDate) return false;
+
+        let keep = true;
+
+        if (filterBulan !== 'Semua') {
+          if (itemDate.getMonth() + 1 !== parseInt(filterBulan) || itemDate.getFullYear() !== currentYear) {
+            keep = false;
+          }
+        }
+
+        if (filterStartDate) {
+          const start = new Date(filterStartDate);
+          start.setHours(0, 0, 0, 0);
+          if (itemDate < start) keep = false;
+        }
+
+        if (filterEndDate) {
+          const end = new Date(filterEndDate);
+          end.setHours(23, 59, 59, 999);
+          if (itemDate > end) keep = false;
+        }
+
+        return keep;
+      });
+    }
+
+    return data;
+  }, [dashboardData, filterBidang, filterStatus, filterBulan, filterStartDate, filterEndDate, currentYear]);
+
   // Compute stats
   const stats = useMemo(() => {
-    const totalLaporan = dashboardData.length;
-    const uniquePegawai = new Set(dashboardData.map(item => item['Nama Pegawai']).filter(n => n && n !== '-')).size;
-    const totalDievaluasi = dashboardData.filter(item => item['Catatan Pimpinan'] && item['Catatan Pimpinan'].trim() !== '').length;
+    const totalLaporan = filteredData.length;
+    const uniquePegawai = new Set(filteredData.map(item => item['Nama Pegawai']).filter(n => n && n !== '-')).size;
+    const totalDievaluasi = filteredData.filter(item => item['Catatan Pimpinan'] && item['Catatan Pimpinan'].trim() !== '').length;
     return { totalLaporan, uniquePegawai, totalDievaluasi };
-  }, [dashboardData]);
+  }, [filteredData]);
 
   // Compute charts data
   const chartsData = useMemo(() => {
     const countBidang = {};
     const countJenis = {};
-    dashboardData.forEach(item => {
+    filteredData.forEach(item => {
       const bidang = item['Bidang'] || 'Lainnya';
       const jenis = item['Jenis Penugasan'] || 'Lainnya';
       countBidang[bidang] = (countBidang[bidang] || 0) + 1;
@@ -54,21 +114,7 @@ const Dashboard = () => {
         }]
       }
     };
-  }, [dashboardData]);
-
-  // Filtered Table Data
-  const filteredData = useMemo(() => {
-    let data = dashboardData;
-    if (filterBidang !== 'Semua') {
-      const filterVal = cleanText(filterBidang);
-      data = data.filter(item => cleanText(item['Bidang']) === filterVal);
-    }
-    if (filterStatus !== 'Semua') {
-      const isFilterPerlu = cleanText(filterStatus).includes('perlu tindak lanjut');
-      data = data.filter(item => isFilterPerlu ? isPerluTindakLanjut(item['Status Tindak Lanjut']) : !isPerluTindakLanjut(item['Status Tindak Lanjut']));
-    }
-    return data;
-  }, [dashboardData, filterBidang, filterStatus]);
+  }, [filteredData]);
 
   // Pagination Logic
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
@@ -80,7 +126,22 @@ const Dashboard = () => {
   // Reset page on filter change
   useEffect(() => {
     setCurrentPage(1);
-  }, [filterBidang, filterStatus]);
+  }, [filterBidang, filterStatus, filterBulan, filterStartDate, filterEndDate]);
+
+  const bulanList = [
+    { value: '1', label: 'Januari' },
+    { value: '2', label: 'Februari' },
+    { value: '3', label: 'Maret' },
+    { value: '4', label: 'April' },
+    { value: '5', label: 'Mei' },
+    { value: '6', label: 'Juni' },
+    { value: '7', label: 'Juli' },
+    { value: '8', label: 'Agustus' },
+    { value: '9', label: 'September' },
+    { value: '10', label: 'Oktober' },
+    { value: '11', label: 'November' },
+    { value: '12', label: 'Desember' },
+  ];
 
   return (
     <div className="space-y-6 pt-16 lg:pt-0">
@@ -96,6 +157,67 @@ const Dashboard = () => {
           <RefreshCw className={`mr-2 h-4 w-4 ${isDataLoading ? 'animate-spin' : ''}`} />
           Segarkan Data
         </button>
+      </div>
+
+      {/* Filter Section */}
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 mb-6">
+        <div className="flex items-center mb-4">
+          <Filter className="mr-2 text-[#1B3C73]" size={20} />
+          <h3 className="font-bold text-[#1B3C73] text-lg">Filter Data</h3>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Bidang</label>
+            <select 
+              value={filterBidang} onChange={e => setFilterBidang(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl border border-gray-300 text-sm focus:ring-2 focus:ring-[#2A5499] outline-none bg-gray-50 font-medium"
+            >
+              <option value="Semua">Semua Bidang</option>
+              <option value="Sekretariat">Sekretariat</option>
+              <option value="Bidang PPTK">Bidang PPTK</option>
+              <option value="Bidang Hubungan Industrial">Bidang Hubungan Industrial</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Status Keperluan</label>
+            <select 
+              value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl border border-gray-300 text-sm focus:ring-2 focus:ring-[#2A5499] outline-none bg-gray-50 font-medium"
+            >
+              <option value="Semua">Semua Status</option>
+              <option value="Untuk Diketahui">Untuk Diketahui</option>
+              <option value="Perlu Tindak Lanjut Bidang Teknis">Perlu Tindak Lanjut</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Bulan ({currentYear})</label>
+            <select 
+              value={filterBulan} onChange={e => setFilterBulan(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl border border-gray-300 text-sm focus:ring-2 focus:ring-[#2A5499] outline-none bg-gray-50 font-medium"
+            >
+              <option value="Semua">Semua Bulan</option>
+              {bulanList.map(b => (
+                <option key={b.value} value={b.value}>{b.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Tanggal Mulai</label>
+            <input 
+              type="date"
+              value={filterStartDate} onChange={e => setFilterStartDate(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl border border-gray-300 text-sm focus:ring-2 focus:ring-[#2A5499] outline-none bg-gray-50 font-medium text-gray-700"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Tanggal Selesai</label>
+            <input 
+              type="date"
+              value={filterEndDate} onChange={e => setFilterEndDate(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl border border-gray-300 text-sm focus:ring-2 focus:ring-[#2A5499] outline-none bg-gray-50 font-medium text-gray-700"
+            />
+          </div>
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -134,28 +256,6 @@ const Dashboard = () => {
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 mt-6 overflow-hidden">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
           <h3 className="font-bold text-[#1B3C73] text-lg flex items-center"><Table className="mr-2" size={20} /> Rincian Data Penugasan</h3>
-          
-          <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-            <select 
-              value={filterBidang} onChange={e => setFilterBidang(e.target.value)}
-              className="px-4 py-2 rounded-xl border border-gray-300 text-sm focus:ring-2 focus:ring-[#2A5499] outline-none bg-gray-50 font-medium"
-              aria-label="Filter Bidang"
-            >
-              <option value="Semua">Semua Bidang</option>
-              <option value="Sekretariat">Sekretariat</option>
-              <option value="Bidang PPTK">Bidang PPTK</option>
-              <option value="Bidang Hubungan Industrial">Bidang Hubungan Industrial</option>
-            </select>
-            <select 
-              value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-              className="px-4 py-2 rounded-xl border border-gray-300 text-sm focus:ring-2 focus:ring-[#2A5499] outline-none bg-gray-50 font-medium"
-              aria-label="Filter Status"
-            >
-              <option value="Semua">Semua Status</option>
-              <option value="Untuk Diketahui">Untuk Diketahui</option>
-              <option value="Perlu Tindak Lanjut Bidang Teknis">Perlu Tindak Lanjut</option>
-            </select>
-          </div>
         </div>
 
         <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm">
