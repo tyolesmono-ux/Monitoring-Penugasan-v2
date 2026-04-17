@@ -6,10 +6,18 @@ import html2pdf from 'html2pdf.js';
 
 const Cetak = () => {
   const { pegawaiList, fetchData } = useAppContext();
+  const [selectedBidang, setSelectedBidang] = useState('');
   const [selectedPegawai, setSelectedPegawai] = useState('');
   const [laporanList, setLaporanList] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchMsg, setSearchMsg] = useState('');
+
+  const bidangOptions = [...new Set(pegawaiList.map(p => p['Bidang / Unit Kerja'] || p['Bidang']).filter(Boolean))];
+  
+  const filteredPegawai = pegawaiList.filter(p => {
+    const b = p['Bidang / Unit Kerja'] || p['Bidang'];
+    return !selectedBidang || b === selectedBidang;
+  });
 
   const cariLaporan = async () => {
     if (!selectedPegawai) {
@@ -148,22 +156,38 @@ const Cetak = () => {
         </div>
         
         <div className="flex flex-col md:flex-row gap-4 mb-8">
-          <div className="flex-grow">
-            <label htmlFor="select-pegawai" className="block text-sm font-semibold text-gray-700 mb-2">Nama Pegawai</label>
+          <div className="w-full md:w-2/5">
+            <label htmlFor="select-bidang-cetak" className="block text-sm font-semibold text-gray-700 mb-2">Bidang / Unit Kerja</label>
             <select 
-              id="select-pegawai" 
-              value={selectedPegawai} 
-              onChange={e => setSelectedPegawai(e.target.value)}
+              id="select-bidang-cetak" 
+              value={selectedBidang} 
+              onChange={e => {
+                setSelectedBidang(e.target.value);
+                setSelectedPegawai(''); 
+              }}
               className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-[#2A5499] outline-none bg-gray-50"
             >
-              <option value="">-- Pilih Pegawai --</option>
-              {pegawaiList.map((p, i) => <option key={i} value={p}>{p}</option>)}
+              <option value="">-- Semua Bidang --</option>
+              {bidangOptions.map((b, i) => <option key={i} value={b}>{b}</option>)}
             </select>
           </div>
-          <div className="flex items-end">
+          <div className="w-full md:w-2/5">
+            <label htmlFor="select-pegawai-cetak" className="block text-sm font-semibold text-gray-700 mb-2">Nama Pegawai</label>
+            <select 
+              id="select-pegawai-cetak" 
+              value={selectedPegawai} 
+              onChange={e => setSelectedPegawai(e.target.value)}
+              disabled={!selectedBidang}
+              className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-[#2A5499] outline-none bg-gray-50 disabled:bg-gray-200 disabled:cursor-not-allowed"
+            >
+              <option value="">-- Pilih Pegawai --</option>
+              {filteredPegawai.map((p, i) => <option key={i} value={p['Nama Pegawai']}>{p['Nama Pegawai']}</option>)}
+            </select>
+          </div>
+          <div className="flex items-end w-full md:w-1/5">
             <button 
               onClick={cariLaporan} 
-              disabled={isLoading}
+              disabled={isLoading || !selectedPegawai}
               className="w-full md:w-auto bg-[#1B3C73] hover:bg-[#0A2647] text-white font-semibold py-3 px-8 rounded-xl transition shadow-md flex items-center justify-center disabled:opacity-75"
             >
               {isLoading ? <Loader2 className="animate-spin mr-2" /> : <Search className="mr-2" size={18} />} Cari Riwayat

@@ -26,7 +26,7 @@ export const AppProvider = ({ children }) => {
   const loadPegawai = async () => {
     const data = await fetchData('getPegawai');
     if (data.status === 'success') {
-      setPegawaiList(data.data.map(p => p['Nama Pegawai']).filter(Boolean));
+      setPegawaiList(data.data);
     }
   };
 

@@ -74,6 +74,7 @@ function doPost(e) {
        else if (h == "Catatan Hasil Kegiatan") row.push(data.catatanHasil);
        else if (h == "Dokumentasi Kegiatan") row.push(docsUrls.join("\n"));
        else if (h == "Materi (Jika Ada)") row.push(materiUrls.join("\n"));
+       else if (h == "Jabatan") row.push(data.jabatan || "");
        else if (h == "Status Tindak Lanjut") row.push("Untuk Diketahui");
        else if (h == "Catatan Pimpinan") row.push("");
        else row.push("");
@@ -167,4 +168,4 @@ function onFormSubmit(e) {
     }
   } catch (error) {
   }
-}
+}

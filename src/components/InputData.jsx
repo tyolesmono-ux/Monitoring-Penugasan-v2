@@ -7,7 +7,17 @@ import LoaderOverlay from './LoaderOverlay';
 const InputData = () => {
   const { pegawaiList, loadDashboardData } = useAppContext();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedBidang, setSelectedBidang] = useState('');
   const formRef = useRef(null);
+
+  // Get unique bidang from pegawaiList dynamically, fallback if none
+  const bidangOptions = [...new Set(pegawaiList.map(p => p['Bidang / Unit Kerja'] || p['Bidang']).filter(Boolean))];
+  if (bidangOptions.length === 0) {
+    bidangOptions.push("Sekretariat", "Bidang PPTK", "Bidang Hubungan Industrial");
+  }
+
+  // Filter pegawai based on selectedBidang
+  const filteredPegawai = pegawaiList.filter(p => !selectedBidang || (p['Bidang / Unit Kerja'] || p['Bidang']) === selectedBidang);
 
   // Helper: Read a single file as Base64 string
   const getBase64 = (file) => {
@@ -101,8 +111,12 @@ const InputData = () => {
         };
       }));
 
+      const targetPegawai = pegawaiList.find(p => p['Nama Pegawai'] === formData.get('nama'));
+      const jabatanPegawai = targetPegawai ? (targetPegawai['Jabatan'] || targetPegawai['Posisi'] || "") : "";
+
       const payload = {
         namaPegawai: formData.get('nama'),
+        jabatan: jabatanPegawai,
         bidang: formData.get('bidang'),
         jenisPenugasan: formData.get('jenis'),
         tanggalKegiatan: formData.get('tanggal'),
@@ -146,19 +160,24 @@ const InputData = () => {
         <form ref={formRef} onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <label htmlFor="in_nama" className="block text-sm font-semibold text-gray-700">Nama Pegawai <span className="text-red-500">*</span></label>
-              <select name="nama" id="in_nama" required className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-[#2A5499] bg-gray-50 focus:bg-white transition outline-none">
-                <option value="">-- Pilih Nama Pegawai --</option>
-                {pegawaiList.map((p, i) => <option key={i} value={p}>{p}</option>)}
+              <label htmlFor="in_bidang" className="block text-sm font-semibold text-gray-700">Bidang / Unit Kerja <span className="text-red-500">*</span></label>
+              <select 
+                name="bidang" 
+                id="in_bidang" 
+                required 
+                value={selectedBidang}
+                onChange={(e) => setSelectedBidang(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-[#2A5499] bg-gray-50 focus:bg-white transition outline-none"
+              >
+                <option value="">-- Pilih Bidang --</option>
+                {bidangOptions.map((b, i) => <option key={i} value={b}>{b}</option>)}
               </select>
             </div>
             <div className="space-y-2">
-              <label htmlFor="in_bidang" className="block text-sm font-semibold text-gray-700">Bidang / Unit Kerja <span className="text-red-500">*</span></label>
-              <select name="bidang" id="in_bidang" required className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-[#2A5499] bg-gray-50 focus:bg-white transition outline-none">
-                <option value="">-- Pilih Bidang --</option>
-                <option value="Sekretariat">Sekretariat</option>
-                <option value="Bidang PPTK">Bidang PPTK</option>
-                <option value="Bidang Hubungan Industrial">Bidang Hubungan Industrial</option>
+              <label htmlFor="in_nama" className="block text-sm font-semibold text-gray-700">Nama Pegawai <span className="text-red-500">*</span></label>
+              <select name="nama" id="in_nama" required disabled={!selectedBidang} className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-[#2A5499] bg-gray-50 focus:bg-white transition outline-none disabled:bg-gray-200 disabled:cursor-not-allowed">
+                <option value="">-- Pilih Nama Pegawai --</option>
+                {filteredPegawai.map((p, i) => <option key={i} value={p['Nama Pegawai']}>{p['Nama Pegawai']}</option>)}
               </select>
             </div>
           </div>
