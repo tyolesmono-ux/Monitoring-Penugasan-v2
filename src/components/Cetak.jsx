@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { useAppContext } from '../AppContext';
-import { Printer, Search, Download, Calendar, PinIcon, Loader2 } from 'lucide-react';
+import { Printer, Search, Calendar, PinIcon, Loader2 } from 'lucide-react';
 import Swal from 'sweetalert2';
-import html2pdf from 'html2pdf.js';
 
 const Cetak = () => {
   const { pegawaiList, fetchData } = useAppContext();
@@ -121,28 +120,6 @@ const Cetak = () => {
     doc.close();
   };
 
-  const downloadPDF = (lap) => {
-    Swal.fire({
-      title: 'Menyiapkan PDF...', 
-      text: 'Mohon tunggu sebentar', 
-      timer: 2000, 
-      timerProgressBar: true, 
-      showConfirmButton: false
-    });
-
-    const element = document.createElement('div');
-    element.style.padding = '30px';
-    element.style.fontFamily = "'Times New Roman', Times, serif";
-    element.innerHTML = generateTemplateLaporan(lap);
-
-    html2pdf().set({
-      margin: 10, 
-      filename: 'Laporan_' + (lap['Nama Pegawai'] || 'ASN') + '.pdf', 
-      image: { type: 'jpeg', quality: 0.98 }, 
-      html2canvas: { scale: 2, useCORS: true }, 
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    }).from(element).save();
-  };
 
   return (
     <div className="pt-16 lg:pt-0">
@@ -150,7 +127,7 @@ const Cetak = () => {
         <div className="flex items-center mb-6 border-b pb-4">
           <Printer className="text-2xl text-[#1B3C73] mr-3" size={32} />
           <div>
-            <h2 className="text-xl font-bold text-[#1B3C73]">Cetak & Unduh Laporan</h2>
+            <h2 className="text-xl font-bold text-[#1B3C73]">Cetak Laporan</h2>
             <p className="text-sm text-gray-500">Pilih nama Anda untuk melihat dan mencetak riwayat penugasan.</p>
           </div>
         </div>
@@ -213,11 +190,8 @@ const Cetak = () => {
                   </div>
                 </div>
                 <div className="flex gap-2 w-full md:w-auto">
-                  <button onClick={() => prosesCetak(lap)} className="flex-1 md:flex-none px-4 py-2 border border-[#1B3C73] text-[#1B3C73] rounded-lg text-sm font-semibold hover:bg-blue-50 transition flex items-center justify-center">
-                    <Printer size={16} className="mr-2"/> Cetak
-                  </button>
-                  <button onClick={() => downloadPDF(lap)} className="flex-1 md:flex-none px-4 py-2 bg-[#F59E0B] text-[#0A2647] rounded-lg text-sm font-bold hover:bg-[#D97706] transition shadow flex items-center justify-center">
-                    <Download size={16} className="mr-2"/> PDF
+                  <button onClick={() => prosesCetak(lap)} className="flex-1 md:flex-none px-4 py-2 bg-[#1B3C73] text-white rounded-lg text-sm font-semibold hover:bg-[#0A2647] transition flex items-center justify-center shadow-md">
+                    <Printer size={16} className="mr-2"/> Cetak Laporan
                   </button>
                 </div>
               </div>

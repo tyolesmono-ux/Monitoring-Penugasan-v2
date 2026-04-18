@@ -1,6 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAppContext } from '../AppContext';
-import { UserCheck, Lock, Save, Calendar, Check, Loader2, Image as ImageIcon, FileText, Inbox } from 'lucide-react';
+import { UserCheck, Lock, Save, Calendar, Check, Loader2, Image as ImageIcon, FileText, Inbox, FileSpreadsheet, FileDown } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import Swal from 'sweetalert2';
 
 const PIMPINAN_ROLES = [
@@ -80,6 +83,7 @@ const MenuPimpinan = () => {
   
   const [laporanList, setLaporanList] = useState([]);
   const [savingRow, setSavingRow] = useState(null);
+  const [isExporting, setIsExporting] = useState(false);
   
   const pinInputRef = useRef(null);
 
@@ -191,6 +195,115 @@ const MenuPimpinan = () => {
     setSavingRow(null);
   };
 
+  const exportRecap = async (format) => {
+    if (!dashboardData || dashboardData.length === 0) return;
+
+    const roleSetup = PIMPINAN_ROLES.find(r => r.name === activeRole);
+    if (!roleSetup) return;
+
+    setIsExporting(true);
+    Swal.fire({
+      title: 'Menyiapkan Data...',
+      text: 'Mohon tunggu sebentar',
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading();
+      }
+    });
+
+    try {
+      // Filter data logic
+      const dataForRecap = dashboardData.filter(lap => {
+        const lapBidang = lap['Bidang'] || lap['Bidang / Unit Kerja'];
+        const lapBidangUpper = lapBidang ? lapBidang.toUpperCase() : '';
+
+        if (!roleSetup.scopes.includes('ALL')) {
+          if (!roleSetup.scopes.includes(lapBidangUpper)) return false;
+        }
+        if (lapBidangUpper === 'KEPALA DINAS') return false;
+
+        const pegawaiJabatanUpper = (lap['Jabatan'] || '').toUpperCase();
+        if (activeRole.includes('Kasubag')) {
+          if (pegawaiJabatanUpper !== 'STAFF') return false;
+        }
+        return true;
+      });
+
+      if (dataForRecap.length === 0) {
+        Swal.fire('Info', 'Tidak ada data laporan untuk diekspor.', 'info');
+        setIsExporting(false);
+        return;
+      }
+
+      // Mapping columns for export
+      const mappedData = dataForRecap.map((lap, index) => ({
+        'No': index + 1,
+        'Tanggal': lap['Tanggal Kegiatan'] || '-',
+        'Nama Pegawai': lap['Nama Pegawai'] || '-',
+        'Bidang': lap['Bidang'] || lap['Bidang / Unit Kerja'] || '-',
+        'Nama Kegiatan': lap['Nama Kegiatan'] || '-',
+        'Hasil Kegiatan': lap['Catatan Hasil Kegiatan'] || '-',
+        'Status': lap['Status Tindak Lanjut'] || '-',
+        'Catatan Pimpinan': lap['Catatan Pimpinan'] || '-'
+      }));
+
+      // Beri sedikit delay agar user melihat proses (opsional)
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      if (format === 'xlsx') {
+        const ws = XLSX.utils.json_to_sheet(mappedData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Rekap Laporan");
+        XLSX.writeFile(wb, `Rekap_Laporan_${activeRole.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`);
+      } else if (format === 'pdf') {
+        const doc = new jsPDF('l', 'mm', 'a4');
+        const title = `Rekap Laporan Kegiatan - ${activeRole}`;
+        
+        doc.setFontSize(16);
+        doc.text(title, 14, 15);
+        doc.setFontSize(10);
+        doc.text(`Dicetak pada: ${new Date().toLocaleString('id-ID')}`, 14, 22);
+
+        const tableColumn = Object.keys(mappedData[0]);
+        const tableRows = mappedData.map(item => Object.values(item));
+
+        autoTable(doc, {
+          head: [tableColumn],
+          body: tableRows,
+          startY: 28,
+          theme: 'grid',
+          styles: { fontSize: 8, cellPadding: 2 },
+          headStyles: { fillColor: [27, 60, 115], textColor: 255 },
+          columnStyles: {
+            0: { cellWidth: 10 },
+            1: { cellWidth: 25 },
+            2: { cellWidth: 35 },
+            3: { cellWidth: 35 },
+            4: { cellWidth: 50 },
+            5: { cellWidth: 60 },
+            6: { cellWidth: 25 },
+            7: { cellWidth: 40 },
+          }
+        });
+        doc.save(`Rekap_Laporan_${activeRole.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+      }
+
+      Swal.close();
+      Swal.fire({
+        icon: 'success',
+        title: 'Berhasil!',
+        text: `File ${format.toUpperCase()} telah berhasil diunduh.`,
+        timer: 2000,
+        showConfirmButton: false
+      });
+    } catch (error) {
+      console.error('Export Error:', error);
+      Swal.fire('Error', 'Gagal memproses ekspor data: ' + error.message, 'error');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   if (!isAuthenticated) {
     return (
       <div className="flex items-center justify-center min-h-[60vh] pt-16 lg:pt-0">
@@ -239,9 +352,28 @@ const MenuPimpinan = () => {
               <p className="text-sm text-gray-500">Anda login sebagai: <strong className="text-[#F59E0B]">{activeRole}</strong></p>
             </div>
           </div>
-          <button onClick={() => {setIsAuthenticated(false); setActiveRole(''); setPin('');}} className="text-sm text-gray-400 hover:text-red-500 font-semibold underline transition">
-            Keluar
-          </button>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => exportRecap('xlsx')} 
+              disabled={isExporting}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded-lg text-xs font-bold hover:bg-green-100 transition shadow-sm disabled:opacity-50"
+              title="Ekspor ke Excel"
+            >
+              {isExporting ? <Loader2 size={14} className="animate-spin" /> : <FileSpreadsheet size={14} />} XLSX
+            </button>
+            <button 
+              onClick={() => exportRecap('pdf')} 
+              disabled={isExporting}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-lg text-xs font-bold hover:bg-red-100 transition shadow-sm disabled:opacity-50"
+              title="Ekspor ke PDF"
+            >
+              {isExporting ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />} PDF
+            </button>
+            <div className="w-px h-6 bg-gray-200 mx-1"></div>
+            <button onClick={() => {setIsAuthenticated(false); setActiveRole(''); setPin('');}} className="text-sm text-gray-400 hover:text-red-600 font-semibold underline transition">
+              Keluar
+            </button>
+          </div>
         </div>
         
         {isDataLoading ? (
