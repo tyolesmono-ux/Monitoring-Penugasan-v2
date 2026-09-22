@@ -69,9 +69,23 @@ export function MaterialItem({
   const isExcel = /\.(xls|xlsx)$/i.test(file.name)
   const isWord = /\.(doc|docx)$/i.test(file.name)
 
+  const url = useMemo(() => {
+    if (!isPdf) return ''
+    try {
+      return URL.createObjectURL(file)
+    } catch {
+      return ''
+    }
+  }, [file, isPdf])
+
+  useEffect(() => {
+    return () => {
+      if (url) URL.revokeObjectURL(url)
+    }
+  }, [url])
+
   const handlePreview = () => {
-    const url = URL.createObjectURL(file)
-    onPreview(url)
+    if (url) onPreview(url)
   }
 
   return (
