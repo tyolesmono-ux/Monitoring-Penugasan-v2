@@ -68,6 +68,12 @@ describe('Route Loading Skeletons', () => {
     const el = RootLoading()
     expect(el).toBeDefined()
   })
+
+  it('renders LaporanLoading with skeleton elements', async () => {
+    const { default: LaporanLoading } = await import('../src/app/laporan/loading')
+    const el = LaporanLoading()
+    expect(el).toBeDefined()
+  })
 })
 
 describe('Sidebar Navigation Component', () => {
