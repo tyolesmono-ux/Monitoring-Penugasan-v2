@@ -194,3 +194,15 @@ Browser → GET /api/enhance → Next.js Route Handler → Gemini API
 - Kontrak API Apps Script (endpoint, payload JSON): [`docs/DOKUMEN_REFERENSI_TEKNIS/PRD-SIMPELGAS.md#52-kontrak-api`](docs/DOKUMEN_REFERENSI_TEKNIS/PRD-SIMPELGAS.md)
 - Setup environment & deploy: [`docs/DOKUMEN_REFERENSI_TEKNIS/DEPLOYMENT.md`](docs/DOKUMEN_REFERENSI_TEKNIS/DEPLOYMENT.md)
 - Riwayat perubahan: [`docs/DOKUMEN_REFERENSI_TEKNIS/CHANGELOG.md`](docs/DOKUMEN_REFERENSI_TEKNIS/CHANGELOG.md)
+
+<!-- antislop:start -->
+## antislop
+For UI, copy, people, mobile layout, or code comments work, load the antislop skill for the task:
+- Core filter, always on: `antislop`
+- UI / visual: `antislop-ui`
+- Copy & text: `antislop-copywriting`
+- People: `antislop-human`
+- Mobile / responsive: `antislop-layoutmobile`
+- Code comments: `antislop-code`
+Before starting, ask the user when antislop applies: during the work, or after it is done.
+<!-- antislop:end -->

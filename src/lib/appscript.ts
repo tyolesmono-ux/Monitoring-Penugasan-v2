@@ -21,6 +21,13 @@ export interface AppsScriptSubmitPayload {
   materi?: AppsScriptFilePayload[]
 }
 
+export interface AppsScriptUpdatePayload extends AppsScriptSubmitPayload {
+  action: 'updateLaporan'
+  rowIndex: number
+  existingDokUrls?: string[]
+  existingMateriUrls?: string[]
+}
+
 /**
  * Konversi format tanggal dari spreadsheet (DD/MM/YYYY) ke standar input/HTML (YYYY-MM-DD)
  */
@@ -152,6 +159,47 @@ export async function fetchPegawaiFromAppsScript(): Promise<Pegawai[]> {
   } catch (error) {
     console.error('[APPSCRIPT] Error fetching pegawai:', error)
     return []
+  }
+}
+
+/**
+ * Update existing laporan di Google Spreadsheet melalui Google Apps Script Web App
+ */
+export async function updateLaporanInAppsScript(
+  payload: AppsScriptUpdatePayload
+): Promise<{ status: string; message?: string }> {
+  const url = process.env.APPSCRIPT_URL
+  if (!url) {
+    return {
+      status: 'error',
+      message: 'APPSCRIPT_URL belum dikonfigurasi di file environment.',
+    }
+  }
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8',
+      },
+      body: JSON.stringify(payload),
+      redirect: 'follow',
+    })
+
+    if (!res.ok) {
+      return {
+        status: 'error',
+        message: `Google Apps Script mengembalikan HTTP ${res.status}: ${res.statusText}`,
+      }
+    }
+
+    return await res.json()
+  } catch (error: any) {
+    console.error('[APPSCRIPT] Error updating laporan in Apps Script:', error)
+    return {
+      status: 'error',
+      message: error?.message || 'Gagal memperbarui data di Google Apps Script.',
+    }
   }
 }
 

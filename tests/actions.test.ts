@@ -236,6 +236,222 @@ describe('Server Actions Zod Validation', () => {
 
     global.fetch = originalFetch
   })
+
+  it('rejects updateLaporan with invalid data or missing nip', async () => {
+    const { updateLaporan } = await import('@/lib/actions')
+    const invalidData = {
+      rowIndex: -1,
+      pegawai_id: '',
+      nip: '',
+      bidang: '',
+      jabatan: '',
+      jenis_penugasan: '',
+      tanggal_kegiatan: 'invalid-date',
+      nama_kegiatan: '',
+      tempat_kegiatan: '',
+      penyelenggara: '',
+    }
+    const res = await updateLaporan(invalidData as any)
+    expect(res.status).toBe('error')
+    expect(res.message).toBeDefined()
+  })
+
+  it('rejects updateLaporan if the report has already been evaluated by pimpinan', async () => {
+    const { updateLaporan } = await import('@/lib/actions')
+    const originalFetch = global.fetch
+    process.env.APPSCRIPT_URL = 'https://script.google.com/mock'
+
+    // Mock laporan yang sudah memiliki catatan pimpinan
+    global.fetch = async (url: any) => {
+      const urlStr = String(url)
+      if (urlStr.includes('action=getLaporan')) {
+        return new Response(
+          JSON.stringify({
+            status: 'success',
+            data: [
+              {
+                Row_Index: 3,
+                'Nama Pegawai': 'Budi Santoso',
+                Bidang: 'Sekretariat',
+                'Jenis Penugasan': 'Rapat',
+                'Tanggal Kegiatan': '20/09/2026',
+                'Nama Kegiatan': 'Rapat Lama',
+                'Tempat Kegiatan': 'Solo',
+                'Penyelenggara Kegiatan': 'Disnaker',
+                'Catatan Hasil Kegiatan': 'Hasil',
+                'Status Tindak Lanjut': 'Selesai (Untuk Diketahui)',
+                'Catatan Pimpinan': 'Sudah disetujui Kepala Dinas',
+              },
+            ],
+          }),
+          { status: 200 }
+        )
+      }
+      return new Response(JSON.stringify({ status: 'success', data: [] }), { status: 200 })
+    }
+
+    const payload = {
+      rowIndex: 3,
+      pegawai_id: 'Budi Santoso',
+      nip: '198501012010011001',
+      bidang: 'Sekretariat',
+      jabatan: 'Staff',
+      jenis_penugasan: 'Rapat',
+      tanggal_kegiatan: '2026-09-20',
+      nama_kegiatan: 'Revisi Rapat',
+      tempat_kegiatan: 'Solo',
+      penyelenggara: 'Disnaker',
+      catatan_hasil: 'Hasil baru',
+    }
+
+    const res = await updateLaporan(payload as any)
+    expect(res.status).toBe('error')
+    expect(res.message).toContain('telah dievaluasi oleh Pimpinan')
+
+    global.fetch = originalFetch
+  })
+
+  it('rejects updateLaporan if nip does not match pelapor master data', async () => {
+    const { updateLaporan } = await import('@/lib/actions')
+    const originalFetch = global.fetch
+    process.env.APPSCRIPT_URL = 'https://script.google.com/mock'
+
+    global.fetch = async (url: any) => {
+      const urlStr = String(url)
+      if (urlStr.includes('action=getLaporan')) {
+        return new Response(
+          JSON.stringify({
+            status: 'success',
+            data: [
+              {
+                Row_Index: 5,
+                'Nama Pegawai': 'Budi Santoso',
+                Bidang: 'Sekretariat',
+                'Jenis Penugasan': 'Rapat',
+                'Tanggal Kegiatan': '20/09/2026',
+                'Nama Kegiatan': 'Rapat Belum Dievaluasi',
+                'Tempat Kegiatan': 'Solo',
+                'Penyelenggara Kegiatan': 'Disnaker',
+                'Catatan Hasil Kegiatan': 'Hasil',
+                'Status Tindak Lanjut': 'Untuk Diketahui',
+                'Catatan Pimpinan': '',
+              },
+            ],
+          }),
+          { status: 200 }
+        )
+      }
+      if (urlStr.includes('action=getPegawai')) {
+        return new Response(
+          JSON.stringify({
+            status: 'success',
+            data: [
+              {
+                id: '1',
+                nama: 'Budi Santoso',
+                nip: '198501012010011001',
+                bidang: 'Sekretariat',
+                jabatan: 'Staff',
+              },
+            ],
+          }),
+          { status: 200 }
+        )
+      }
+      return new Response(JSON.stringify({ status: 'success', data: [] }), { status: 200 })
+    }
+
+    const payloadWithWrongNip = {
+      rowIndex: 5,
+      pegawai_id: 'Budi Santoso',
+      nip: '199999999999999999', // NIP salah
+      bidang: 'Sekretariat',
+      jabatan: 'Staff',
+      jenis_penugasan: 'Rapat',
+      tanggal_kegiatan: '2026-09-20',
+      nama_kegiatan: 'Revisi Rapat',
+      tempat_kegiatan: 'Solo',
+      penyelenggara: 'Disnaker',
+      catatan_hasil: 'Hasil baru',
+    }
+
+    const res = await updateLaporan(payloadWithWrongNip as any)
+    expect(res.status).toBe('error')
+    expect(res.message).toContain('NIP yang dimasukkan tidak cocok')
+
+    global.fetch = originalFetch
+  })
+
+  it('rejects updateLaporan if target pegawai is not registered in master data', async () => {
+    const { updateLaporan } = await import('@/lib/actions')
+    const originalFetch = global.fetch
+    process.env.APPSCRIPT_URL = 'https://script.google.com/mock'
+
+    global.fetch = async (url: any) => {
+      const urlStr = String(url)
+      if (urlStr.includes('action=getLaporan')) {
+        return new Response(
+          JSON.stringify({
+            status: 'success',
+            data: [
+              {
+                Row_Index: 6,
+                'Nama Pegawai': 'Pegawai Tidak Terdaftar',
+                Bidang: 'Sekretariat',
+                'Jenis Penugasan': 'Rapat',
+                'Tanggal Kegiatan': '20/09/2026',
+                'Nama Kegiatan': 'Rapat',
+                'Tempat Kegiatan': 'Solo',
+                'Penyelenggara Kegiatan': 'Disnaker',
+                'Catatan Hasil Kegiatan': 'Hasil',
+                'Status Tindak Lanjut': 'Untuk Diketahui',
+                'Catatan Pimpinan': '',
+              },
+            ],
+          }),
+          { status: 200 }
+        )
+      }
+      if (urlStr.includes('action=getPegawai')) {
+        return new Response(
+          JSON.stringify({
+            status: 'success',
+            data: [
+              {
+                id: '1',
+                nama: 'Budi Santoso',
+                nip: '198501012010011001',
+                bidang: 'Sekretariat',
+                jabatan: 'Staff',
+              },
+            ],
+          }),
+          { status: 200 }
+        )
+      }
+      return new Response(JSON.stringify({ status: 'success', data: [] }), { status: 200 })
+    }
+
+    const payload = {
+      rowIndex: 6,
+      pegawai_id: 'Pegawai Tidak Terdaftar',
+      nip: '198501012010011001',
+      bidang: 'Sekretariat',
+      jabatan: 'Staff',
+      jenis_penugasan: 'Rapat',
+      tanggal_kegiatan: '2026-09-20',
+      nama_kegiatan: 'Revisi Rapat',
+      tempat_kegiatan: 'Solo',
+      penyelenggara: 'Disnaker',
+      catatan_hasil: 'Hasil baru',
+    }
+
+    const res = await updateLaporan(payload as any)
+    expect(res.status).toBe('error')
+    expect(res.message).toContain('tidak terdaftar di sistem')
+
+    global.fetch = originalFetch
+  })
 })
 
 describe('refreshData action', () => {

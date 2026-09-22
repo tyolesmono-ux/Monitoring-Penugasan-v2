@@ -103,3 +103,10 @@ export interface KegiatanInternalFormData {
   peserta: string
   jumlah_peserta: number | null
 }
+
+export interface UpdateLaporanFormData extends LaporanFormData {
+  rowIndex: number
+  nip: string
+  existing_dok_urls?: string[]
+  existing_materi_urls?: string[]
+}

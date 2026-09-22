@@ -1,5 +1,14 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import React from 'react'
+
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/dashboard',
+  useRouter: () => ({
+    push: vi.fn(),
+    refresh: vi.fn(),
+  }),
+}))
+
 import { Skeleton } from '../src/components/ui/skeleton'
 import { EmptyState } from '../src/components/ui/empty-state'
 import { ErrorState } from '../src/components/ui/error-state'
@@ -60,3 +69,16 @@ describe('Route Loading Skeletons', () => {
     expect(el).toBeDefined()
   })
 })
+
+describe('Sidebar Navigation Component', () => {
+  it('renders Daftar Laporan and Download PDF navigation items', async () => {
+    const { renderToString } = await import('react-dom/server')
+    const { Sidebar } = await import('../src/components/sidebar')
+    const html = renderToString(<Sidebar />)
+    expect(html).toContain('href="/laporan"')
+    expect(html).toContain('Daftar Laporan')
+    expect(html).toContain('href="/cetak"')
+    expect(html).toContain('Download PDF')
+  })
+})
+

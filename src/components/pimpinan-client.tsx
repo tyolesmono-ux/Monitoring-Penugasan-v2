@@ -13,6 +13,8 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { DESIGN_TOKENS } from '@/lib/design-tokens'
 import { formatUserFriendlyError, logSystemError, generateErrorCode } from '@/lib/error-handler'
 
+import { getDriveDirectImageUrl } from '@/lib/print-utils'
+
 interface PimpinanClientProps {
   initialLaporan: Laporan[]
   pegawaiList: Pegawai[]
@@ -27,47 +29,6 @@ interface LaporanWithEdit extends Laporan {
 function cleanTextHelper(str: string) {
   if (!str) return ''
   return str.toString().toLowerCase().replace(/\s+/g, ' ').trim()
-}
-
-// Ekstrak file ID dari berbagai format URL Google Drive
-function getDriveFileId(url: string): string | null {
-  const patterns = [
-    /[?&]id=([-\w]+)/,           // ?id= atau &id= (open, uc?export=view, dsb)
-    /\/file\/d\/([-\w]+)/,       // /file/d/FILE_ID/view
-    /\/d\/([-\w]+)/,             // /d/FILE_ID/ (Docs, Slides, Sheets)
-    /\/uc\?.*?id=([-\w]+)/,      // uc?export=view&id= (format lama GAS)
-  ]
-  for (const pattern of patterns) {
-    const match = url.match(pattern)
-    // Pastikan ID minimal 10 karakter agar tidak salah tangkap parameter pendek
-    if (match && match[1].length >= 10) return match[1]
-  }
-  return null
-}
-
-// Cek apakah URL adalah Google Docs/Slides/Sheets (bukan file gambar)
-function isDriveDocument(url: string): boolean {
-  const docPaths = ['/presentation/', '/document/', '/spreadsheets/']
-  return docPaths.some(path => url.includes(path))
-}
-
-// Tentukan src yang tepat untuk <img> berdasarkan jenis URL:
-// - Supabase Storage → URL langsung (sudah publik, tidak perlu konversi)
-// - Google Drive file → thumbnail API
-// - Google Docs/Slides/Sheets → null (tampilkan sebagai link, bukan gambar)
-// - URL lain yang dikenali sebagai gambar → URL langsung
-function getImageSrc(url: string): string | null {
-  // Supabase Storage public URL — bisa langsung dipakai sebagai img src
-  if (url.includes('.supabase.co/storage/')) return url
-
-  // Google Docs/Slides/Sheets — bukan gambar, tampilkan sebagai link
-  if (isDriveDocument(url)) return null
-
-  // Google Drive file — gunakan Thumbnail API
-  const id = getDriveFileId(url)
-  if (id) return `https://drive.google.com/thumbnail?id=${id}&sz=w600`
-
-  return null
 }
 
 export function PimpinanClient({ initialLaporan, pegawaiList, session }: PimpinanClientProps) {
@@ -416,7 +377,7 @@ export function PimpinanClient({ initialLaporan, pegawaiList, session }: Pimpina
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {lap.dokumentasi_urls && lap.dokumentasi_urls.length > 0 ? (
                           lap.dokumentasi_urls.map((url, i) => {
-                            const imageSrc = getImageSrc(url)
+                            const imageSrc = getDriveDirectImageUrl(url, 600)
                             if (imageSrc) {
                               return (
                                 <a key={i} href={url} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-xl border border-slate-200 hover:shadow-lg transition group relative bg-white aspect-video">

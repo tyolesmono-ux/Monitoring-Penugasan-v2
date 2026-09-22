@@ -32,4 +32,13 @@ export const LoginPimpinanSchema = z.object({
   pin: z.string().regex(/^\d{4,6}$/, 'PIN harus terdiri dari 4 sampai 6 digit angka')
 })
 
+export const UpdateLaporanSchema = LaporanFormDataSchema.extend({
+  rowIndex: z.number().int().positive('Index baris harus berupa bilangan bulat positif'),
+  nip: z.string().trim().min(1, 'NIP pegawai wajib diisi untuk verifikasi kepemilikan'),
+  existing_dok_urls: z.array(z.string()).optional(),
+  existing_materi_urls: z.array(z.string()).optional(),
+})
+
+export type ValidatedUpdateLaporanData = z.infer<typeof UpdateLaporanSchema>
+
 export type LoginPimpinanInput = z.infer<typeof LoginPimpinanSchema>

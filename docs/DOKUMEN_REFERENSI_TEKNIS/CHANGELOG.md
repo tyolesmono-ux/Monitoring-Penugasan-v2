@@ -23,6 +23,18 @@ Format mengacu pada [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), da
 
 ---
 
+## [2.1.0] — 2026-09-22
+
+### Ditambahkan
+- **Modul Daftar Laporan Penugasan (`/laporan`)**: Halaman penjelajahan laporan dengan kartu KPI, penyaringan bidang & status lock, pencarian teks, dan dialog verifikasi NIP via SweetAlert2.
+- **Modul Formulir Edit Laporan (`/laporan/[id]/edit`)**: Antarmuka penyuntingan laporan penugasan ASN dengan preservasi dokumen Drive yang sudah ada, galeri hapus berkas, upload berkas baru terkompresi otomatis, fitur Dikte Suara (STT), dan AI text enhancement.
+- **Server Action `updateLaporan()`**: Mutasi aman dengan validasi Zod `UpdateLaporanSchema`, pembatasan Base64 (4.2 MB), verifikasi kecocokan NIP terhadap master pegawai (`getPegawai()`), serta guard locking status evaluasi pimpinan.
+- **Backend Google Apps Script Batch Update**: Handler `updateLaporan` di `code.gs` menggunakan batch array update (`getValues()` / `setValues()`) 1 kali transaksi untuk performa tinggi tanpa mengubah kolom evaluasi pimpinan (`Catatan Pimpinan` & `Status Tindak Lanjut`).
+- **Navigasi Sidebar Baru**: Tautan navigasi "Daftar Laporan" (`/laporan`, icon `ClipboardList`) tersemat pada bilah navigasi utama.
+- **Pengujian Otomatis Komprehensif**: Penambahan pengujian unit di `tests/validations.test.ts`, `tests/actions.test.ts`, `tests/laporan-list.test.tsx`, `tests/edit-laporan.test.tsx`, dan `tests/ui-states.test.tsx` (100% lulus).
+
+---
+
 ## [2.0.0] — 2026-09-02
 
 ### Migrasi Arsitektur Besar (Breaking Change dari v1.x)

@@ -32,132 +32,15 @@ import {
   isPdfFile,
   PDF_COMPRESS_THRESHOLD_BYTES,
   MAX_MATERI_FILE_SIZE_BYTES,
+  fileToBase64,
 } from '@/lib/file-guard'
+import { PhotoThumbnail, MaterialItem } from '@/components/ui/file-items'
 import { useSpeechToText } from '@/lib/use-speech-to-text'
 import { formatSpeechText, mergeTranscript } from '@/lib/speech-formatter'
 import { AiCompareModal } from '@/components/ui/ai-compare-modal'
 import { FilePreviewModal } from '@/components/ui/file-preview-modal'
 import { formatUserFriendlyError, logSystemError, generateErrorCode } from '@/lib/error-handler'
 import type { Pegawai } from '@/lib/types'
-
-function PhotoThumbnail({
-  file,
-  onRemove,
-  onPreview,
-  formatSize,
-}: {
-  file: File
-  onRemove: () => void
-  onPreview: (url: string) => void
-  formatSize: (bytes: number) => string
-}) {
-  const url = useMemo(() => {
-    try {
-      return URL.createObjectURL(file)
-    } catch {
-      return ''
-    }
-  }, [file])
-
-  useEffect(() => {
-    return () => {
-      if (url) {
-        URL.revokeObjectURL(url)
-      }
-    }
-  }, [url])
-
-  return (
-    <div className="group relative aspect-square rounded-md overflow-hidden border border-slate-200 bg-slate-100 shadow-2xs">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={url} alt={file.name} className="w-full h-full object-cover" />
-      <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-1">
-        <button
-          type="button"
-          onClick={() => onPreview(url)}
-          className="p-1 rounded bg-white/90 text-slate-800 hover:text-primary transition cursor-pointer"
-          title="Lihat foto besar"
-        >
-          <Eye size={12} />
-        </button>
-        <button
-          type="button"
-          onClick={onRemove}
-          className="p-1 rounded bg-white/90 text-rose-600 hover:text-rose-700 transition cursor-pointer"
-          title="Hapus foto ini"
-        >
-          <Trash2 size={12} />
-        </button>
-      </div>
-      <span className="absolute bottom-0.5 left-0.5 text-[8px] bg-slate-900/70 text-white px-1 rounded truncate max-w-[90%]">
-        {formatSize(file.size)}
-      </span>
-    </div>
-  )
-}
-
-function MaterialItem({
-  file,
-  onRemove,
-  onPreview,
-  formatSize,
-}: {
-  file: File
-  onRemove: () => void
-  onPreview: (url: string) => void
-  formatSize: (bytes: number) => string
-}) {
-  const isPdf = file.name.toLowerCase().endsWith('.pdf')
-  const isExcel = /\.(xls|xlsx)$/i.test(file.name)
-  const isWord = /\.(doc|docx)$/i.test(file.name)
-
-  const handlePreview = () => {
-    const url = URL.createObjectURL(file)
-    onPreview(url)
-  }
-
-  return (
-    <div className="flex items-center justify-between p-1.5 bg-white rounded-md border border-slate-200 text-[11px]">
-      <div className="flex items-center gap-1.5 min-w-0 pr-1">
-        {isPdf ? (
-          <FileText size={14} className="text-rose-600 shrink-0" />
-        ) : isExcel ? (
-          <FileSpreadsheet size={14} className="text-emerald-600 shrink-0" />
-        ) : isWord ? (
-          <FileText size={14} className="text-sky-600 shrink-0" />
-        ) : (
-          <FileIcon size={14} className="text-slate-500 shrink-0" />
-        )}
-        <div className="min-w-0">
-          <p className="font-semibold text-slate-800 truncate" title={file.name}>
-            {file.name}
-          </p>
-          <span className="text-[9px] text-slate-400">{formatSize(file.size)}</span>
-        </div>
-      </div>
-      <div className="flex items-center gap-1 shrink-0">
-        {isPdf && (
-          <button
-            type="button"
-            onClick={handlePreview}
-            className="p-1 rounded text-slate-500 hover:text-primary hover:bg-slate-100 transition cursor-pointer"
-            title="Lihat PDF"
-          >
-            <Eye size={12} />
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={onRemove}
-          className="p-1 rounded text-slate-400 hover:text-destructive hover:bg-slate-100 transition cursor-pointer"
-          title="Hapus berkas"
-        >
-          <Trash2 size={12} />
-        </button>
-      </div>
-    </div>
-  )
-}
 
 interface InputFormClientProps {
   pegawaiList: Pegawai[]
@@ -281,23 +164,6 @@ export function InputFormClient({ pegawaiList }: InputFormClientProps) {
     (p) => !selectedBidang || p.bidang === selectedBidang
   )
 
-  // Helper: Read file as Base64
-  const getBase64 = (file: File): Promise<string | null> => {
-    return new Promise((resolve, reject) => {
-      if (!file) resolve(null)
-      const reader = new FileReader()
-      reader.readAsDataURL(file)
-      reader.onload = () => {
-        let encoded = reader.result?.toString().replace(/^data:(.*,)?/, '') || ''
-        if (encoded.length % 4 > 0) {
-          encoded += '='.repeat(4 - (encoded.length % 4))
-        }
-        resolve(encoded)
-      }
-      reader.onerror = (error) => reject(error)
-    })
-  }
-
   const { isListening, interimText, toggleListening } = useSpeechToText({
     lang: 'id-ID',
     onTranscript: (chunk, isFinal) => {
@@ -389,7 +255,7 @@ export function InputFormClient({ pegawaiList }: InputFormClientProps) {
     try {
       const base64Docs = await Promise.all(
         docFilesToSubmit.map(async (file) => ({
-          base64: (await getBase64(file)) || '',
+          base64: await fileToBase64(file),
           name: file.name,
           mime: file.type || 'image/jpeg',
         }))
@@ -397,7 +263,7 @@ export function InputFormClient({ pegawaiList }: InputFormClientProps) {
 
       const base64Mats = await Promise.all(
         matFilesToSubmit.map(async (file) => ({
-          base64: (await getBase64(file)) || '',
+          base64: await fileToBase64(file),
           name: file.name,
           mime: file.type || 'application/octet-stream',
         }))
@@ -465,14 +331,14 @@ export function InputFormClient({ pegawaiList }: InputFormClientProps) {
   }
 
   return (
-    <div className="relative w-full max-w-5xl mx-auto">
+    <div className="relative w-full max-w-5xl xl:max-w-6xl mx-auto">
       {/* Loading Overlay */}
       {isSubmitting && (
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/60 backdrop-blur-sm rounded-2xl">
-          <div className="bg-white p-5 rounded-2xl shadow-xl flex flex-col items-center text-center max-w-sm w-11/12 border border-slate-200">
-            <Loader2 className="animate-spin text-primary mb-2.5" size={36} />
+          <div className="bg-white p-6 rounded-2xl shadow-xl flex flex-col items-center text-center max-w-sm w-11/12 border border-slate-200">
+            <Loader2 className="animate-spin text-primary mb-3" size={40} />
             <h3 className="text-base font-bold text-slate-900 mb-1">Menyimpan Laporan</h3>
-            <p className="text-slate-500 text-xs">Mohon tunggu, berkas dan data sedang diunggah...</p>
+            <p className="text-slate-500 text-xs sm:text-sm">Mohon tunggu, berkas dan data sedang diunggah...</p>
           </div>
         </div>
       )}
@@ -480,10 +346,10 @@ export function InputFormClient({ pegawaiList }: InputFormClientProps) {
       {/* Optimizing File Overlay */}
       {isOptimizingFile && (
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/60 backdrop-blur-sm rounded-2xl">
-          <div className="bg-white p-5 rounded-2xl shadow-xl flex flex-col items-center text-center max-w-sm w-11/12 border border-slate-200">
-            <Loader2 className="animate-spin text-primary mb-2.5" size={36} />
+          <div className="bg-white p-6 rounded-2xl shadow-xl flex flex-col items-center text-center max-w-sm w-11/12 border border-slate-200">
+            <Loader2 className="animate-spin text-primary mb-3" size={40} />
             <h3 className="text-base font-bold text-slate-900 mb-1">Mengoptimalkan Berkas</h3>
-            <p className="text-slate-500 text-xs">Sedang memproses dan mengompresi lampiran untuk pengiriman aman...</p>
+            <p className="text-slate-500 text-xs sm:text-sm">Sedang memproses dan mengompresi lampiran untuk pengiriman aman...</p>
           </div>
         </div>
       )}
@@ -495,22 +361,22 @@ export function InputFormClient({ pegawaiList }: InputFormClientProps) {
         }`}
       >
         {/* Compact Header Bar */}
-        <div className="bg-slate-900 px-4 sm:px-5 py-2.5 border-b border-slate-800 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="p-1 bg-slate-800 rounded-md text-primary">
-              <FileSignature size={18} />
+        <div className="bg-slate-900 px-4 sm:px-6 py-3.5 border-b border-slate-800 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-1.5 bg-slate-800 rounded-lg text-primary">
+              <FileSignature size={20} />
             </div>
             <div>
-              <h2 className="text-sm sm:text-base font-bold text-white leading-tight">
+              <h2 className="text-base sm:text-lg font-bold text-white leading-tight">
                 Formulir Laporan Penugasan
               </h2>
-              <p className="text-[11px] text-slate-400 hidden sm:block">
+              <p className="text-xs sm:text-sm text-slate-400 hidden sm:block">
                 Pencatatan resmi kegiatan penugasan ASN Dinas Tenaga Kerja Surakarta
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-1.5 px-2 py-0.5 bg-slate-800/80 rounded-full border border-slate-700 text-slate-300 text-[11px] font-medium">
-            <Building2 size={12} className="text-primary" />
+          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-800/80 rounded-full border border-slate-700 text-slate-300 text-xs font-medium">
+            <Building2 size={14} className="text-primary" />
             <span>SIMPELGAS</span>
           </div>
         </div>
@@ -519,21 +385,21 @@ export function InputFormClient({ pegawaiList }: InputFormClientProps) {
         <form
           ref={formRef}
           onSubmit={handleSubmit}
-          className="p-3 sm:p-4 grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-4 items-stretch"
+          className="p-4 sm:p-6 grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-5 items-stretch"
         >
           {/* LEFT COLUMN: Metadata & Identitas Penugasan (6 cols on md, 5 on xl) */}
-          <div className="md:col-span-6 xl:col-span-5 flex flex-col gap-2.5 justify-between">
+          <div className="md:col-span-6 xl:col-span-5 flex flex-col gap-3.5 justify-between">
             {/* Sub-panel 1: Pegawai & Penugasan */}
-            <div className="bg-slate-50/80 p-2.5 sm:p-3 rounded-xl border border-slate-200/80 flex flex-col gap-2">
-              <div className="text-[11px] font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 pb-1 border-b border-slate-200">
-                <span className="w-1.5 h-3 bg-primary rounded-full" />
+            <div className="bg-slate-50/80 p-3 sm:p-4 rounded-xl border border-slate-200/80 flex flex-col gap-3">
+              <div className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 pb-1.5 border-b border-slate-200">
+                <span className="w-1.5 h-3.5 bg-primary rounded-full" />
                 Data Pegawai & Penugasan
               </div>
 
               {/* Row: Bidang & Nama */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <div className="space-y-0.5">
-                  <label htmlFor="in_bidang" className="block text-[11px] font-semibold text-slate-700">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label htmlFor="in_bidang" className="block text-sm font-semibold text-slate-700">
                     Bidang / Unit Kerja <span className="text-destructive">*</span>
                   </label>
                   <select
@@ -542,7 +408,7 @@ export function InputFormClient({ pegawaiList }: InputFormClientProps) {
                     required
                     value={selectedBidang}
                     onChange={(e) => setSelectedBidang(e.target.value)}
-                    className="w-full px-2 py-1 text-xs rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary focus:border-primary bg-white transition outline-none h-8"
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary focus:border-primary bg-white transition outline-none h-10"
                   >
                     <option value="">-- Pilih Bidang --</option>
                     {bidangOptions.map((b) => (
@@ -553,8 +419,8 @@ export function InputFormClient({ pegawaiList }: InputFormClientProps) {
                   </select>
                 </div>
 
-                <div className="space-y-0.5">
-                  <label htmlFor="in_nama" className="block text-[11px] font-semibold text-slate-700">
+                <div className="space-y-1">
+                  <label htmlFor="in_nama" className="block text-sm font-semibold text-slate-700">
                     Nama Pegawai <span className="text-destructive">*</span>
                   </label>
                   <select
@@ -562,7 +428,7 @@ export function InputFormClient({ pegawaiList }: InputFormClientProps) {
                     id="in_nama"
                     required
                     disabled={!selectedBidang}
-                    className="w-full px-2 py-1 text-xs rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary focus:border-primary bg-white transition outline-none h-8 disabled:bg-slate-200 disabled:cursor-not-allowed"
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary focus:border-primary bg-white transition outline-none h-10 disabled:bg-slate-200 disabled:cursor-not-allowed"
                   >
                     <option value="">-- Pilih Nama Pegawai --</option>
                     {filteredPegawai.map((p) => (
@@ -575,16 +441,16 @@ export function InputFormClient({ pegawaiList }: InputFormClientProps) {
               </div>
 
               {/* Row: Jenis Penugasan & Tanggal */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <div className="space-y-0.5">
-                  <label htmlFor="in_jenis" className="block text-[11px] font-semibold text-slate-700">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label htmlFor="in_jenis" className="block text-sm font-semibold text-slate-700">
                     Jenis Penugasan <span className="text-destructive">*</span>
                   </label>
                   <select
                     name="jenis"
                     id="in_jenis"
                     required
-                    className="w-full px-2 py-1 text-xs rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary focus:border-primary bg-white transition outline-none h-8"
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary focus:border-primary bg-white transition outline-none h-10"
                   >
                     <option value="">-- Pilih Jenis --</option>
                     <option value="Rapat Koordinasi">Rapat Koordinasi</option>
@@ -595,8 +461,8 @@ export function InputFormClient({ pegawaiList }: InputFormClientProps) {
                   </select>
                 </div>
 
-                <div className="space-y-0.5">
-                  <label htmlFor="in_tanggal" className="block text-[11px] font-semibold text-slate-700">
+                <div className="space-y-1">
+                  <label htmlFor="in_tanggal" className="block text-sm font-semibold text-slate-700">
                     Tanggal Kegiatan <span className="text-destructive">*</span>
                   </label>
                   <input
@@ -604,22 +470,22 @@ export function InputFormClient({ pegawaiList }: InputFormClientProps) {
                     name="tanggal"
                     id="in_tanggal"
                     required
-                    className="w-full px-2 py-1 text-xs rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary focus:border-primary bg-white transition outline-none h-8"
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary focus:border-primary bg-white transition outline-none h-10"
                   />
                 </div>
               </div>
             </div>
 
             {/* Sub-panel 2: Detail Kegiatan & Lokasi */}
-            <div className="bg-slate-50/80 p-2.5 sm:p-3 rounded-xl border border-slate-200/80 flex flex-col gap-2">
-              <div className="text-[11px] font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 pb-1 border-b border-slate-200">
-                <span className="w-1.5 h-3 bg-primary rounded-full" />
+            <div className="bg-slate-50/80 p-3 sm:p-4 rounded-xl border border-slate-200/80 flex flex-col gap-3">
+              <div className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 pb-1.5 border-b border-slate-200">
+                <span className="w-1.5 h-3.5 bg-primary rounded-full" />
                 Informasi & Lokasi Acara
               </div>
 
               {/* Nama Kegiatan */}
-              <div className="space-y-0.5">
-                <label htmlFor="in_kegiatan" className="block text-[11px] font-semibold text-slate-700">
+              <div className="space-y-1">
+                <label htmlFor="in_kegiatan" className="block text-sm font-semibold text-slate-700">
                   Nama Kegiatan <span className="text-destructive">*</span>
                 </label>
                 <input
@@ -628,14 +494,14 @@ export function InputFormClient({ pegawaiList }: InputFormClientProps) {
                   id="in_kegiatan"
                   placeholder="Contoh: Rapat Evaluasi Kinerja Triwulan III"
                   required
-                  className="w-full px-2.5 py-1 text-xs rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary focus:border-primary bg-white transition outline-none h-8"
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary focus:border-primary bg-white transition outline-none h-10"
                 />
               </div>
 
               {/* Row: Tempat & Penyelenggara */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <div className="space-y-0.5">
-                  <label htmlFor="in_tempat" className="block text-[11px] font-semibold text-slate-700">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label htmlFor="in_tempat" className="block text-sm font-semibold text-slate-700">
                     Tempat Kegiatan <span className="text-destructive">*</span>
                   </label>
                   <input
@@ -644,12 +510,12 @@ export function InputFormClient({ pegawaiList }: InputFormClientProps) {
                     id="in_tempat"
                     placeholder="Contoh: Hotel Solo Paragon"
                     required
-                    className="w-full px-2.5 py-1 text-xs rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary focus:border-primary bg-white transition outline-none h-8"
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary focus:border-primary bg-white transition outline-none h-10"
                   />
                 </div>
 
-                <div className="space-y-0.5">
-                  <label htmlFor="in_penyelenggara" className="block text-[11px] font-semibold text-slate-700">
+                <div className="space-y-1">
+                  <label htmlFor="in_penyelenggara" className="block text-sm font-semibold text-slate-700">
                     Penyelenggara <span className="text-destructive">*</span>
                   </label>
                   <input
@@ -658,14 +524,14 @@ export function InputFormClient({ pegawaiList }: InputFormClientProps) {
                     id="in_penyelenggara"
                     placeholder="Contoh: Disnaker Prov. Jateng"
                     required
-                    className="w-full px-2.5 py-1 text-xs rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary focus:border-primary bg-white transition outline-none h-8"
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary focus:border-primary bg-white transition outline-none h-10"
                   />
                 </div>
               </div>
 
               {/* Tamu Undangan */}
-              <div className="space-y-0.5">
-                <label htmlFor="in_tamu" className="block text-[11px] font-semibold text-slate-700">
+              <div className="space-y-1">
+                <label htmlFor="in_tamu" className="block text-sm font-semibold text-slate-700">
                   Tamu Undangan / Peserta
                 </label>
                 <input
@@ -673,28 +539,28 @@ export function InputFormClient({ pegawaiList }: InputFormClientProps) {
                   name="tamu"
                   id="in_tamu"
                   placeholder="Contoh: Perwakilan OPD, Camat se-Surakarta"
-                  className="w-full px-2.5 py-1 text-xs rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary focus:border-primary bg-white transition outline-none h-8"
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary focus:border-primary bg-white transition outline-none h-10"
                 />
               </div>
             </div>
           </div>
 
           {/* RIGHT COLUMN: Catatan AI, Lampiran & Aksi Kirim (6 cols on md, 7 on xl) */}
-          <div className="md:col-span-6 xl:col-span-7 flex flex-col gap-2.5 justify-between">
+          <div className="md:col-span-6 xl:col-span-7 flex flex-col gap-3.5 justify-between">
             {/* Catatan + Dikte Suara & AI Enhance Section */}
-            <div className="bg-slate-50/80 p-2.5 sm:p-3 rounded-xl border border-slate-200/80 flex flex-col gap-1.5">
-              <div className="flex flex-wrap items-center justify-between gap-2 pb-1 border-b border-slate-200">
-                <div className="text-[11px] font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                  <span className="w-1.5 h-3 bg-primary rounded-full" />
+            <div className="bg-slate-50/80 p-3 sm:p-4 rounded-xl border border-slate-200/80 flex flex-col gap-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2 pb-1.5 border-b border-slate-200">
+                <div className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                  <span className="w-1.5 h-3.5 bg-primary rounded-full" />
                   Catatan Hasil Kegiatan <span className="text-destructive">*</span>
                 </div>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-2">
                   {/* Tombol Dikte Suara (STT) */}
                   <button
                     type="button"
                     onClick={toggleListening}
                     disabled={isEnhancing || isSubmitting}
-                    className={`flex items-center justify-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all duration-150 cursor-pointer active:scale-95 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed ${
+                    className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer active:scale-95 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed ${
                       isListening
                         ? 'bg-rose-600 hover:bg-rose-700 text-white animate-pulse'
                         : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
@@ -703,12 +569,12 @@ export function InputFormClient({ pegawaiList }: InputFormClientProps) {
                   >
                     {isListening ? (
                       <>
-                        <MicOff size={12} className="text-white" />
+                        <MicOff size={14} className="text-white" />
                         <span>Mendengarkan...</span>
                       </>
                     ) : (
                       <>
-                        <Mic size={12} className="text-primary" />
+                        <Mic size={14} className="text-primary" />
                         <span>Dikte Suara</span>
                       </>
                     )}
@@ -719,13 +585,13 @@ export function InputFormClient({ pegawaiList }: InputFormClientProps) {
                     type="button"
                     onClick={enhanceTextWithAI}
                     disabled={isEnhancing || isSubmitting || isListening}
-                    className="flex items-center justify-center gap-1 px-2.5 py-1 bg-violet-600 hover:bg-violet-700 text-white rounded-md text-[11px] font-semibold transition-all duration-150 cursor-pointer active:scale-95 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer active:scale-95 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
                     title="Perbaiki dan kembangkan poin kegiatan dengan AI"
                   >
                     {isEnhancing ? (
-                      <Loader2 size={12} className="animate-spin" />
+                      <Loader2 size={14} className="animate-spin" />
                     ) : (
-                      <Sparkles size={12} />
+                      <Sparkles size={14} />
                     )}
                     <span>Perbaiki Teks dengan AI</span>
                   </button>
@@ -733,8 +599,8 @@ export function InputFormClient({ pegawaiList }: InputFormClientProps) {
               </div>
 
               {isListening && interimText && (
-                <div className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] text-slate-600 bg-rose-50/80 border border-rose-100 rounded-md animate-in fade-in duration-150">
-                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
+                <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-slate-600 bg-rose-50/80 border border-rose-100 rounded-lg animate-in fade-in duration-150">
+                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
                   <span className="font-semibold text-rose-700">Mendengar:</span>
                   <span className="italic truncate">{interimText}</span>
                 </div>
@@ -743,12 +609,12 @@ export function InputFormClient({ pegawaiList }: InputFormClientProps) {
               <textarea
                 name="catatan"
                 id="in_catatan"
-                rows={3}
+                rows={4}
                 value={catatanText}
                 onChange={(e) => setCatatanText(e.target.value)}
                 placeholder="Tuliskan ringkasan pokok pembahasan, keputusan, dan tindak lanjut hasil kegiatan di sini (bisa gunakan Dikte Suara)..."
                 required
-                className={`w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary focus:border-primary bg-white transition outline-none resize-none h-20 sm:h-24 ${
+                className={`w-full p-3 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary focus:border-primary bg-white transition outline-none resize-none min-h-[130px] sm:min-h-[140px] leading-relaxed ${
                   isEnhancing ? 'opacity-50' : ''
                 } ${isListening ? 'border-rose-300 ring-2 ring-rose-200' : ''}`}
                 disabled={isEnhancing || isSubmitting}
@@ -756,7 +622,7 @@ export function InputFormClient({ pegawaiList }: InputFormClientProps) {
             </div>
 
             {/* Lampiran Dual Dropzone Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Foto Upload Card */}
               <div
                 onDragOver={(e) => {
@@ -770,21 +636,21 @@ export function InputFormClient({ pegawaiList }: InputFormClientProps) {
                     handleAddDocFiles(Array.from(e.dataTransfer.files))
                   }
                 }}
-                className="bg-sky-50/60 p-2.5 rounded-xl border border-sky-100 flex flex-col justify-between"
+                className="bg-sky-50/60 p-3.5 rounded-xl border border-sky-100 flex flex-col justify-between"
               >
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center justify-between mb-2">
                     <label
                       htmlFor="in_file_dok"
-                      className="text-[11px] font-bold text-slate-800 flex items-center gap-1 cursor-pointer"
+                      className="text-xs sm:text-sm font-bold text-slate-800 flex items-center gap-1.5 cursor-pointer"
                     >
-                      <Camera size={13} className="text-primary" />
+                      <Camera size={16} className="text-primary" />
                       <span>Dokumentasi (Foto)</span>
                     </label>
                     {docFiles.length > 0 && (
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] bg-primary/20 text-sky-900 font-bold px-1.5 py-0.2 rounded flex items-center gap-1">
-                          <CheckCircle2 size={10} /> {docFiles.length} foto
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs bg-primary/20 text-sky-900 font-bold px-2 py-0.5 rounded flex items-center gap-1">
+                          <CheckCircle2 size={12} /> {docFiles.length} foto
                         </span>
                         <button
                           type="button"
@@ -792,7 +658,7 @@ export function InputFormClient({ pegawaiList }: InputFormClientProps) {
                             setDocFiles([])
                             if (fileDokInputRef.current) fileDokInputRef.current.value = ''
                           }}
-                          className="text-[10px] text-slate-400 hover:text-destructive transition cursor-pointer"
+                          className="text-xs text-slate-400 hover:text-destructive transition cursor-pointer"
                           title="Hapus semua foto"
                         >
                           Hapus Semua
@@ -821,22 +687,22 @@ export function InputFormClient({ pegawaiList }: InputFormClientProps) {
                     <button
                       type="button"
                       onClick={() => fileDokInputRef.current?.click()}
-                      className="w-full flex flex-col items-center justify-center py-3.5 px-2 border-2 border-dashed border-sky-200 hover:border-primary hover:bg-sky-100/50 rounded-lg bg-white/80 transition cursor-pointer text-center group"
+                      className="w-full flex flex-col items-center justify-center py-4 px-3 border-2 border-dashed border-sky-200 hover:border-primary hover:bg-sky-100/50 rounded-lg bg-white/80 transition cursor-pointer text-center group"
                     >
-                      <div className="p-1.5 bg-sky-100 rounded-full text-primary group-hover:scale-110 transition mb-1">
-                        <ImagePlus size={16} />
+                      <div className="p-2 bg-sky-100 rounded-full text-primary group-hover:scale-110 transition mb-1.5">
+                        <ImagePlus size={18} />
                       </div>
-                      <p className="text-[11px] font-semibold text-slate-700 group-hover:text-primary">
+                      <p className="text-xs sm:text-sm font-semibold text-slate-700 group-hover:text-primary">
                         Pilih / Tarik Foto ke Sini
                       </p>
-                      <p className="text-[9px] text-slate-400 mt-0.5">
+                      <p className="text-xs text-slate-500 mt-1">
                         Format JPG, PNG, WEBP (Bisa multiple)
                       </p>
                     </button>
                   ) : (
                     <div>
                       {/* Photo Previews Grid */}
-                      <div className="grid grid-cols-3 gap-1.5 max-h-36 overflow-y-auto p-1 bg-white/70 rounded-lg border border-sky-100">
+                      <div className="grid grid-cols-3 gap-2 max-h-40 overflow-y-auto p-1.5 bg-white/70 rounded-lg border border-sky-100">
                         {docFiles.map((file, idx) => (
                           <PhotoThumbnail
                             key={`${file.name}-${idx}`}
@@ -857,11 +723,11 @@ export function InputFormClient({ pegawaiList }: InputFormClientProps) {
                         <button
                           type="button"
                           onClick={() => fileDokInputRef.current?.click()}
-                          className="aspect-square rounded-md border-2 border-dashed border-sky-200 hover:border-primary bg-white/50 hover:bg-sky-50 flex flex-col items-center justify-center text-slate-500 hover:text-primary transition cursor-pointer"
+                          className="aspect-square rounded-lg border-2 border-dashed border-sky-300 hover:border-primary bg-white/70 hover:bg-sky-100/70 flex flex-col items-center justify-center text-sky-700 hover:text-primary transition cursor-pointer"
                           title="Tambah foto lagi"
                         >
-                          <Plus size={16} />
-                          <span className="text-[8px] font-bold mt-0.5">Tambah</span>
+                          <Plus size={18} />
+                          <span className="text-[10px] font-bold mt-0.5">Tambah</span>
                         </button>
                       </div>
                     </div>
@@ -882,21 +748,21 @@ export function InputFormClient({ pegawaiList }: InputFormClientProps) {
                     handleAddMateriFiles(Array.from(e.dataTransfer.files))
                   }
                 }}
-                className="bg-slate-50/80 p-2.5 rounded-xl border border-slate-200 flex flex-col justify-between"
+                className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-200 flex flex-col justify-between"
               >
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center justify-between mb-2">
                     <label
                       htmlFor="in_file_materi"
-                      className="text-[11px] font-bold text-slate-800 flex items-center gap-1 cursor-pointer"
+                      className="text-xs sm:text-sm font-bold text-slate-800 flex items-center gap-1.5 cursor-pointer"
                     >
-                      <FileText size={13} className="text-slate-600" />
+                      <FileText size={16} className="text-slate-600" />
                       <span>Materi (PDF/Docx)</span>
                     </label>
                     {matFiles.length > 0 && (
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] bg-slate-200 text-slate-800 font-bold px-1.5 py-0.2 rounded flex items-center gap-1">
-                          <CheckCircle2 size={10} /> {matFiles.length} file
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs bg-slate-200 text-slate-800 font-bold px-2 py-0.5 rounded flex items-center gap-1">
+                          <CheckCircle2 size={12} /> {matFiles.length} file
                         </span>
                         <button
                           type="button"
@@ -904,7 +770,7 @@ export function InputFormClient({ pegawaiList }: InputFormClientProps) {
                             setMatFiles([])
                             if (fileMatInputRef.current) fileMatInputRef.current.value = ''
                           }}
-                          className="text-[10px] text-slate-400 hover:text-destructive transition cursor-pointer"
+                          className="text-xs text-slate-400 hover:text-destructive transition cursor-pointer"
                           title="Hapus semua berkas materi"
                         >
                           Hapus Semua
@@ -933,22 +799,22 @@ export function InputFormClient({ pegawaiList }: InputFormClientProps) {
                     <button
                       type="button"
                       onClick={() => fileMatInputRef.current?.click()}
-                      className="w-full flex flex-col items-center justify-center py-3.5 px-2 border-2 border-dashed border-slate-300 hover:border-slate-400 hover:bg-slate-100/60 rounded-lg bg-white/80 transition cursor-pointer text-center group"
+                      className="w-full flex flex-col items-center justify-center py-4 px-3 border-2 border-dashed border-slate-300 hover:border-slate-400 hover:bg-slate-100/60 rounded-lg bg-white/80 transition cursor-pointer text-center group"
                     >
-                      <div className="p-1.5 bg-slate-100 rounded-full text-slate-600 group-hover:scale-110 transition mb-1">
-                        <FileUp size={16} />
+                      <div className="p-2 bg-slate-100 rounded-full text-slate-600 group-hover:scale-110 transition mb-1.5">
+                        <FileUp size={18} />
                       </div>
-                      <p className="text-[11px] font-semibold text-slate-700 group-hover:text-slate-900">
+                      <p className="text-xs sm:text-sm font-semibold text-slate-700 group-hover:text-slate-900">
                         Pilih / Tarik Berkas Materi
                       </p>
-                      <p className="text-[9px] text-slate-400 mt-0.5">
+                      <p className="text-xs text-slate-500 mt-1">
                         PDF, DOCX, XLSX (Maks. 5MB)
                       </p>
                     </button>
                   ) : (
                     <div>
                       {/* Material Files Preview List */}
-                      <div className="space-y-1.5 max-h-36 overflow-y-auto p-1 bg-white/70 rounded-lg border border-slate-200">
+                      <div className="space-y-2 max-h-40 overflow-y-auto p-1.5 bg-white/70 rounded-lg border border-slate-200">
                         {matFiles.map((file, idx) => (
                           <MaterialItem
                             key={`${file.name}-${idx}`}
@@ -969,9 +835,9 @@ export function InputFormClient({ pegawaiList }: InputFormClientProps) {
                       <button
                         type="button"
                         onClick={() => fileMatInputRef.current?.click()}
-                        className="w-full mt-1.5 py-1 px-2 border border-dashed border-slate-300 hover:border-slate-400 rounded-md bg-white text-slate-600 hover:text-slate-800 text-[10px] font-semibold flex items-center justify-center gap-1 transition cursor-pointer"
+                        className="w-full mt-2 py-1.5 px-3 border border-dashed border-slate-300 hover:border-slate-400 rounded-md bg-white text-slate-700 hover:text-slate-900 text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer"
                       >
-                        <Plus size={12} />
+                        <Plus size={14} />
                         <span>Tambah Berkas Lain</span>
                       </button>
                     </div>
@@ -984,16 +850,16 @@ export function InputFormClient({ pegawaiList }: InputFormClientProps) {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full bg-primary text-primary-foreground py-2 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm hover:bg-primary-hover disabled:opacity-70 disabled:cursor-not-allowed transition-all duration-150 cursor-pointer active:scale-[0.99] shadow-md hover:shadow-lg flex justify-center items-center gap-2 outline-none focus:ring-4 focus:ring-primary/30"
+              className="w-full bg-primary text-primary-foreground py-3 sm:py-3.5 rounded-xl font-bold text-sm sm:text-base hover:bg-primary-hover disabled:opacity-70 disabled:cursor-not-allowed transition-all duration-150 cursor-pointer active:scale-[0.99] shadow-md hover:shadow-lg flex justify-center items-center gap-2 outline-none focus:ring-4 focus:ring-primary/30"
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="animate-spin" size={16} />
+                  <Loader2 className="animate-spin" size={18} />
                   <span>Sedang Memproses...</span>
                 </>
               ) : (
                 <>
-                  <Send size={16} />
+                  <Send size={18} />
                   <span>Kirim Laporan Penugasan</span>
                 </>
               )}

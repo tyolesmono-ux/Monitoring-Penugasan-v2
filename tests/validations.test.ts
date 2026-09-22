@@ -3,6 +3,7 @@ import {
   LaporanFormDataSchema,
   EvaluasiPimpinanSchema,
   LoginPimpinanSchema,
+  UpdateLaporanSchema,
 } from '../src/lib/validations'
 
 describe('Zod Validation Schemas', () => {
@@ -76,4 +77,54 @@ describe('Zod Validation Schemas', () => {
     expect(LoginPimpinanSchema.safeParse({ pin: '12345678' }).success).toBe(false)
     expect(LoginPimpinanSchema.safeParse({ pin: 'abcd' }).success).toBe(false)
   })
+
+
+describe('UpdateLaporanSchema Validation', () => {
+  it('validates a valid update laporan payload with nip', () => {
+    const validData = {
+      rowIndex: 5,
+      pegawai_id: 'Budi Santoso, S.Kom',
+      nip: '198501012010011001',
+      bidang: 'Sekretariat',
+      jenis_penugasan: 'Rapat Koordinasi',
+      tanggal_kegiatan: '2026-09-22',
+      nama_kegiatan: 'Rapat Evaluasi Triwulan',
+      tempat_kegiatan: 'Hotel Solo Paragon',
+      penyelenggara: 'Disnaker Surakarta',
+      tamu_undangan: 'Seluruh OPD',
+      catatan_hasil: 'Hasil rapat disepakati bersama',
+      existing_dok_urls: ['https://drive.google.com/file/1'],
+      existing_materi_urls: [],
+    }
+    const result = UpdateLaporanSchema.safeParse(validData)
+    expect(result.success).toBe(true)
+  })
+
+  it('rejects invalid rowIndex or missing required fields including nip', () => {
+    const invalidData = {
+      rowIndex: -1,
+      nip: '',
+      nama_kegiatan: '',
+    }
+    const result = UpdateLaporanSchema.safeParse(invalidData)
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects update when nip is missing', () => {
+    const dataWithoutNip = {
+      rowIndex: 5,
+      pegawai_id: 'Budi Santoso, S.Kom',
+      bidang: 'Sekretariat',
+      jenis_penugasan: 'Rapat Koordinasi',
+      tanggal_kegiatan: '2026-09-22',
+      nama_kegiatan: 'Rapat Evaluasi Triwulan',
+      tempat_kegiatan: 'Hotel Solo Paragon',
+      penyelenggara: 'Disnaker Surakarta',
+      tamu_undangan: 'Seluruh OPD',
+      catatan_hasil: 'Hasil rapat disepakati bersama',
+    }
+    const result = UpdateLaporanSchema.safeParse(dataWithoutNip)
+    expect(result.success).toBe(false)
+  })
+})
 })

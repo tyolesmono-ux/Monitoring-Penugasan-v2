@@ -44,6 +44,58 @@ function doPost(e) {
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("REKAP_LAPORAN");
     var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
     
+    // Tangani operasi updateLaporan
+    if (data.action === "updateLaporan" && data.rowIndex) {
+      var rowIndex = parseInt(data.rowIndex);
+      if (rowIndex < 2 || rowIndex > sheet.getLastRow()) {
+        output.setContent(JSON.stringify({status: "error", message: "Index baris tidak valid"}));
+        return output;
+      }
+      
+      // Simpan file Dokumentasi baru
+      var docsUrls = [];
+      if (data.dokumentasi && data.dokumentasi.length > 0) {
+        docsUrls = saveFilesToDrive(data.dokumentasi, "Dokumentasi Kegiatan (File responses)");
+      }
+      
+      // Simpan file Materi baru
+      var materiUrls = [];
+      if (data.materi && data.materi.length > 0) {
+        materiUrls = saveFilesToDrive(data.materi, "Materi (Jika Ada) (File responses)");
+      }
+      
+      // Dapatkan URL dokumentasi dan materi yang sudah ada
+      var existingDokUrls = data.existingDokUrls || [];
+      var existingMateriUrls = data.existingMateriUrls || [];
+      var allDocsUrls = existingDokUrls.concat(docsUrls);
+      var allMateriUrls = existingMateriUrls.concat(materiUrls);
+      
+      var rowRange = sheet.getRange(rowIndex, 1, 1, headers.length);
+      var rowValues = rowRange.getValues()[0];
+      for (var i = 0; i < headers.length; i++) {
+        var h = headers[i];
+        if (h == "Nama Pegawai") rowValues[i] = data.namaPegawai;
+        else if (h == "Bidang") rowValues[i] = data.bidang;
+        else if (h == "Jenis Penugasan") rowValues[i] = data.jenisPenugasan;
+        else if (h == "Tanggal Kegiatan") {
+          var parts = data.tanggalKegiatan.split("-");
+          rowValues[i] = parts[2] + "/" + parts[1] + "/" + parts[0];
+        }
+        else if (h == "Nama Kegiatan") rowValues[i] = data.namaKegiatan;
+        else if (h == "Tempat Kegiatan") rowValues[i] = data.tempatKegiatan;
+        else if (h == "Penyelenggara Kegiatan") rowValues[i] = data.penyelenggara;
+        else if (h == "Tamu Undangan yang Hadir") rowValues[i] = data.tamuUndangan || "";
+        else if (h == "Catatan Hasil Kegiatan") rowValues[i] = data.catatanHasil || "";
+        else if (h == "Dokumentasi Kegiatan") rowValues[i] = allDocsUrls.join("\n");
+        else if (h == "Materi (Jika Ada)") rowValues[i] = allMateriUrls.join("\n");
+        // Status Tindak Lanjut & Catatan Pimpinan SENGAJA TIDAK DIUBAH
+      }
+      rowRange.setValues([rowValues]);
+      
+      output.setContent(JSON.stringify({status: "success", message: "Laporan berhasil diperbarui"}));
+      return output;
+    }
+    
     // Simpan file Dokumentasi
     var docsUrls = [];
     if (data.dokumentasi && data.dokumentasi.length > 0) {
@@ -97,6 +149,11 @@ function saveFilesToDrive(filesArray, folderName) {
     if (f.base64 && f.name) {
       var blob = Utilities.newBlob(Utilities.base64Decode(f.base64), f.mime, f.name);
       var file = targetFolder.createFile(blob);
+      try {
+        file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      } catch (err) {
+        // Fallback jika Google Workspace melarang sharing publik langsung
+      }
       urls.push(file.getUrl());
     }
   });

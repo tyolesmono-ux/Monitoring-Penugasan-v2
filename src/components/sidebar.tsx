@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   FileEdit,
   FileDown,
+  ClipboardList,
   KeyRound,
   Building2,
   Menu,
@@ -16,6 +17,7 @@ import {
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/input', label: 'Input Penugasan', icon: FileEdit },
+  { href: '/laporan', label: 'Daftar Laporan', icon: ClipboardList },
   { href: '/cetak', label: 'Download PDF', icon: FileDown },
 ]
 

@@ -9,20 +9,25 @@ import type {
   LaporanFormData,
   KegiatanInternal,
   KegiatanInternalFormData,
+  UpdateLaporanFormData,
 } from './types'
 import {
   fetchPegawaiFromAppsScript,
   fetchLaporanFromAppsScript,
   submitLaporanToAppsScript,
   updateEvaluasiInAppsScript,
+  updateLaporanInAppsScript,
   normalizePersonName,
   type AppsScriptFilePayload,
+  type AppsScriptUpdatePayload,
 } from './appscript'
 import { getDriveDirectImageUrl } from './print-utils'
 import {
   LaporanFormDataSchema,
   EvaluasiPimpinanSchema,
   LoginPimpinanSchema,
+  UpdateLaporanSchema,
+  type ValidatedUpdateLaporanData,
 } from './validations'
 import { formatUserFriendlyError, logSystemError, generateErrorCode } from './error-handler'
 
@@ -31,18 +36,40 @@ import { formatUserFriendlyError, logSystemError, generateErrorCode } from './er
 // ============================================================
 
 // Master data pegawai: TTL 30 menit (1800 detik)
-export const getPegawai = unstable_cache(
+const cachedGetPegawai = unstable_cache(
   async (): Promise<Pegawai[]> => fetchPegawaiFromAppsScript(),
   ['pegawai-list'],
   { tags: ['pegawai'], revalidate: 1800 }
 )
 
+export async function getPegawai(): Promise<Pegawai[]> {
+  try {
+    return await cachedGetPegawai()
+  } catch (err: any) {
+    if (err?.message?.includes('incrementalCache missing')) {
+      return await fetchPegawaiFromAppsScript()
+    }
+    throw err
+  }
+}
+
 // Rekap laporan: TTL 60 detik (1 menit)
-export const getLaporan = unstable_cache(
+const cachedGetLaporan = unstable_cache(
   async (namaPegawai?: string): Promise<Laporan[]> => fetchLaporanFromAppsScript(namaPegawai),
   ['laporan-list'],
   { tags: ['laporan'], revalidate: 60 }
 )
+
+export async function getLaporan(namaPegawai?: string): Promise<Laporan[]> {
+  try {
+    return await cachedGetLaporan(namaPegawai)
+  } catch (err: any) {
+    if (err?.message?.includes('incrementalCache missing')) {
+      return await fetchLaporanFromAppsScript(namaPegawai)
+    }
+    throw err
+  }
+}
 
 export async function getAllLaporan(): Promise<Laporan[]> {
   const [laporanList, pegawaiList] = await Promise.all([
@@ -123,6 +150,21 @@ export async function getLaporanByPegawaiId(pegawaiIdOrName: string): Promise<La
 // DATA MUTATION (SUBMIT LAPORAN & GOOGLE DRIVE UPLOAD)
 // ============================================================
 
+// Helper untuk membersihkan dan memformat payload file Base64
+function sanitizeFilePayloads(
+  files: (AppsScriptFilePayload | any)[],
+  defaultName: string,
+  defaultMime: string
+): AppsScriptFilePayload[] {
+  return files
+    .filter((f) => f && typeof f === 'object' && f.base64)
+    .map((f) => ({
+      base64: f.base64,
+      name: f.name || defaultName,
+      mime: f.mime || defaultMime,
+    }))
+}
+
 export async function submitLaporan(
   formData: LaporanFormData,
   dokFiles: AppsScriptFilePayload[] | any[] = [],
@@ -140,21 +182,8 @@ export async function submitLaporan(
     }
 
     // Pastikan payload file berformat AppsScriptFilePayload
-    const dokumentasi: AppsScriptFilePayload[] = dokFiles
-      .filter((f) => f && typeof f === 'object' && f.base64)
-      .map((f) => ({
-        base64: f.base64,
-        name: f.name || 'dokumentasi.jpg',
-        mime: f.mime || 'image/jpeg',
-      }))
-
-    const materi: AppsScriptFilePayload[] = materiFiles
-      .filter((f) => f && typeof f === 'object' && f.base64)
-      .map((f) => ({
-        base64: f.base64,
-        name: f.name || 'materi.pdf',
-        mime: f.mime || 'application/pdf',
-      }))
+    const dokumentasi = sanitizeFilePayloads(dokFiles, 'dokumentasi.jpg', 'image/jpeg')
+    const materi = sanitizeFilePayloads(materiFiles, 'materi.pdf', 'application/pdf')
 
     // Validasi batas transmisi payload Base64 (Vercel Serverless limit 4.5 MB)
     const totalBase64Length =
@@ -437,5 +466,148 @@ export async function getDirectImageBase64(url: string): Promise<string | null> 
   } catch (err) {
     console.error('[getDirectImageBase64] Error fetching image:', err)
     return null
+  }
+}
+
+export async function updateLaporan(
+  formData: UpdateLaporanFormData,
+  dokFiles: AppsScriptFilePayload[] | any[] = [],
+  materiFiles: AppsScriptFilePayload[] | any[] = []
+) {
+  try {
+    // Validasi data menggunakan UpdateLaporanSchema
+    const validation = UpdateLaporanSchema.safeParse(formData)
+    if (!validation.success) {
+      return {
+        status: 'error',
+        message: validation.error.issues[0]?.message || 'Data formulir tidak valid.',
+        errorCode: generateErrorCode(),
+      }
+    }
+
+    const validatedData: ValidatedUpdateLaporanData = validation.data
+
+    // Validasi batas transmisi payload Base64 (Vercel Serverless limit 4.5 MB)
+    const totalBase64Length = [...dokFiles, ...materiFiles].reduce(
+      (acc, f) => acc + (f.base64?.length || 0),
+      0
+    )
+
+    if (totalBase64Length > 4.2 * 1024 * 1024) {
+      return {
+        status: 'error',
+        message:
+          'Total ukuran berkas lampiran melebihi batas aman transmisi server (4.5 MB). Silakan kompres foto atau berkas materi terlebih dahulu.',
+        errorCode: generateErrorCode(),
+      }
+    }
+
+    // Cari laporan yang akan diupdate
+    const allLaporan = await getAllLaporan()
+    const targetLaporan = allLaporan.find((l) => l.id === formData.rowIndex.toString())
+    if (!targetLaporan) {
+      return {
+        status: 'error',
+        message: 'Laporan tidak ditemukan.',
+        errorCode: generateErrorCode(),
+      }
+    }
+
+    // Verifikasi status lock: jika catatan_pimpinan terisi atau status bukan 'Untuk Diketahui', tolak
+    const isEvaluated =
+      Boolean(targetLaporan.catatan_pimpinan && targetLaporan.catatan_pimpinan.trim() !== '') ||
+      (Boolean(targetLaporan.status_tindak_lanjut) && targetLaporan.status_tindak_lanjut !== 'Untuk Diketahui')
+
+    if (isEvaluated) {
+      return {
+        status: 'error',
+        message: 'Laporan telah dievaluasi oleh Pimpinan dan tidak dapat diedit.',
+        errorCode: generateErrorCode(),
+      }
+    }
+
+    // Verifikasi NIP pegawai pelapor cocok dengan master data pegawai
+    const allPegawai = await getPegawai()
+    const targetPegawai = allPegawai.find(
+      (p) =>
+        normalizePersonName(p.nama) === normalizePersonName(targetLaporan.pegawai_id) ||
+        p.id === targetLaporan.pegawai_id
+    )
+
+    if (!targetPegawai) {
+      return {
+        status: 'error',
+        message: 'Data pegawai pelapor tidak terdaftar di sistem.',
+        errorCode: generateErrorCode(),
+      }
+    }
+
+    if (targetPegawai.nip) {
+      const cleanInputNip = validatedData.nip.replace(/\s+/g, '')
+      const cleanTargetNip = targetPegawai.nip.replace(/\s+/g, '')
+      if (cleanInputNip !== cleanTargetNip) {
+        return {
+          status: 'error',
+          message: 'NIP yang dimasukkan tidak cocok dengan data pegawai pelapor.',
+          errorCode: generateErrorCode(),
+        }
+      }
+    }
+
+    // Pastikan payload file berformat AppsScriptFilePayload
+    const dokumentasi = sanitizeFilePayloads(dokFiles, 'dokumentasi.jpg', 'image/jpeg')
+    const materi = sanitizeFilePayloads(materiFiles, 'materi.pdf', 'application/pdf')
+
+    // Siapkan payload untuk Apps Script
+    const payload: AppsScriptUpdatePayload = {
+      action: 'updateLaporan',
+      rowIndex: validatedData.rowIndex,
+      namaPegawai: validatedData.pegawai_id,
+      bidang: validatedData.bidang,
+      jabatan: validatedData.jabatan,
+      jenisPenugasan: validatedData.jenis_penugasan,
+      tanggalKegiatan: validatedData.tanggal_kegiatan,
+      namaKegiatan: validatedData.nama_kegiatan,
+      tempatKegiatan: validatedData.tempat_kegiatan,
+      penyelenggara: validatedData.penyelenggara,
+      tamuUndangan: validatedData.tamu_undangan,
+      catatanHasil: validatedData.catatan_hasil,
+      dokumentasi,
+      materi,
+      existingDokUrls: validatedData.existing_dok_urls || [],
+      existingMateriUrls: validatedData.existing_materi_urls || [],
+    }
+
+    const res = await updateLaporanInAppsScript(payload)
+
+    if (res?.status === 'success') {
+      try {
+        revalidateTag('laporan')
+      } catch {
+        // safe fallback if called outside Next.js request lifecycle
+      }
+      revalidatePath('/laporan')
+      revalidatePath('/dashboard')
+      revalidatePath('/cetak')
+      revalidatePath('/pimpinan')
+    } else if (res?.status === 'error') {
+      const friendly = formatUserFriendlyError(res.message, 'Gagal memperbarui laporan di Spreadsheet.')
+      logSystemError(friendly.errorCode, res.message, 'actions.updateLaporan')
+      return {
+        status: 'error',
+        message: friendly.userMessage,
+        errorCode: friendly.errorCode,
+      }
+    }
+
+    return res
+  } catch (error: any) {
+    const friendly = formatUserFriendlyError(error, 'Gagal memperbarui laporan.')
+    logSystemError(friendly.errorCode, error, 'actions.updateLaporan')
+    return {
+      status: 'error',
+      message: friendly.userMessage,
+      errorCode: friendly.errorCode,
+    }
   }
 }
