@@ -53,9 +53,16 @@ describe('InputFormClient Redesign & Workbench Layout (TDD)', () => {
     expect(html).toContain('Kirim Laporan Penugasan')
   })
 
-  it('implements responsive workbench grid architecture', () => {
+  it('implements responsive workbench grid architecture with balanced columns and tall textarea', () => {
     const html = renderToString(<InputFormClient pegawaiList={mockPegawaiList} />)
     // Redesigned form uses multi-column split grid on md (768px+)
     expect(html).toContain('md:grid-cols-12')
+    // Left and right columns use balanced 50:50 layout (6 columns each)
+    expect(html).toContain('md:col-span-6 xl:col-span-6')
+    // Sub-panel lampiran exists
+    expect(html).toContain('Lampiran Berkas &amp; Dokumentasi')
+    // Textarea has full-height flex-1 and min-h-380px
+    expect(html).toContain('flex-1')
+    expect(html).toContain('min-h-[380px]')
   })
 })

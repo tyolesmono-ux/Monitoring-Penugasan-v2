@@ -383,8 +383,8 @@ export function InputFormClient({ pegawaiList }: InputFormClientProps) {
           onSubmit={handleSubmit}
           className="p-4 sm:p-6 grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-5 items-stretch"
         >
-          {/* LEFT COLUMN: Metadata & Identitas Penugasan (6 cols on md, 5 on xl) */}
-          <div className="md:col-span-6 xl:col-span-5 flex flex-col gap-3.5 justify-between">
+          {/* LEFT COLUMN: Metadata, Identitas & Lampiran (6 cols on md, 6 on xl) */}
+          <div className="md:col-span-6 xl:col-span-6 flex flex-col gap-3.5">
             {/* Sub-panel 1: Pegawai & Penugasan */}
             <div className="bg-slate-50/80 p-3 sm:p-4 rounded-xl border border-slate-200/80 flex flex-col gap-3">
               <div className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 pb-1.5 border-b border-slate-200">
@@ -539,12 +539,244 @@ export function InputFormClient({ pegawaiList }: InputFormClientProps) {
                 />
               </div>
             </div>
+
+            {/* Sub-panel 3: Lampiran Berkas & Dokumentasi */}
+            <div className="bg-slate-50/80 p-3 sm:p-4 rounded-xl border border-slate-200/80 flex flex-col gap-3">
+              <div className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 pb-1.5 border-b border-slate-200">
+                <span className="w-1.5 h-3.5 bg-primary rounded-full" />
+                Lampiran Berkas & Dokumentasi
+              </div>
+
+              <div className="flex flex-col gap-3">
+                {/* Foto Upload Card */}
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                      handleAddDocFiles(Array.from(e.dataTransfer.files))
+                    }
+                  }}
+                  className="bg-sky-50/60 p-3.5 rounded-xl border border-sky-100 flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label
+                        htmlFor="in_file_dok"
+                        className="text-xs sm:text-sm font-bold text-slate-800 flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Camera size={16} className="text-primary" />
+                        <span>Dokumentasi (Foto)</span>
+                      </label>
+                      {docFiles.length > 0 && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs bg-primary/20 text-sky-900 font-bold px-2 py-0.5 rounded flex items-center gap-1">
+                            <CheckCircle2 size={12} /> {docFiles.length} foto
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDocFiles([])
+                              if (fileDokInputRef.current) fileDokInputRef.current.value = ''
+                            }}
+                            className="text-xs text-slate-400 hover:text-destructive transition cursor-pointer"
+                            title="Hapus semua foto"
+                          >
+                            Hapus Semua
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    <input
+                      ref={fileDokInputRef}
+                      multiple
+                      type="file"
+                      name="file_dok"
+                      id="in_file_dok"
+                      accept="image/*"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files.length > 0) {
+                          handleAddDocFiles(Array.from(e.target.files))
+                          e.target.value = ''
+                        }
+                      }}
+                      className="hidden"
+                    />
+
+                    {docFiles.length === 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => fileDokInputRef.current?.click()}
+                        className="w-full flex flex-col items-center justify-center py-4 px-3 border-2 border-dashed border-sky-200 hover:border-primary hover:bg-sky-100/50 rounded-lg bg-white/80 transition cursor-pointer text-center group"
+                      >
+                        <div className="p-2 bg-sky-100 rounded-full text-primary group-hover:scale-110 transition mb-1.5">
+                          <ImagePlus size={18} />
+                        </div>
+                        <p className="text-xs sm:text-sm font-semibold text-slate-700 group-hover:text-primary">
+                          Pilih / Tarik Foto ke Sini
+                        </p>
+                        <p className="text-xs text-slate-500 mt-1">
+                          Format JPG, PNG, WEBP (Bisa multiple)
+                        </p>
+                      </button>
+                    ) : (
+                      <div>
+                        {/* Photo Previews Grid */}
+                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-48 overflow-y-auto p-1.5 bg-white/70 rounded-lg border border-sky-100">
+                          {docFiles.map((file, idx) => (
+                            <PhotoThumbnail
+                              key={`${file.name}-${idx}`}
+                              file={file}
+                              onRemove={() => removeDocFile(idx)}
+                              onPreview={(url) =>
+                                setFilePreview({
+                                  isOpen: true,
+                                  fileUrl: url,
+                                  fileName: file.name,
+                                  fileType: 'image',
+                                })
+                              }
+                              formatSize={formatFileSize}
+                            />
+                          ))}
+                          {/* Mini Add Button */}
+                          <button
+                            type="button"
+                            onClick={() => fileDokInputRef.current?.click()}
+                            className="aspect-square rounded-lg border-2 border-dashed border-sky-300 hover:border-primary bg-white/70 hover:bg-sky-100/70 flex flex-col items-center justify-center text-sky-700 hover:text-primary transition cursor-pointer"
+                            title="Tambah foto lagi"
+                          >
+                            <Plus size={18} />
+                            <span className="text-[10px] font-bold mt-0.5">Tambah</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Materi Upload Card */}
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                      handleAddMateriFiles(Array.from(e.dataTransfer.files))
+                    }
+                  }}
+                  className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-200 flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label
+                        htmlFor="in_file_materi"
+                        className="text-xs sm:text-sm font-bold text-slate-800 flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <FileText size={16} className="text-slate-600" />
+                        <span>Materi (PDF/Docx)</span>
+                      </label>
+                      {matFiles.length > 0 && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs bg-slate-200 text-slate-800 font-bold px-2 py-0.5 rounded flex items-center gap-1">
+                            <CheckCircle2 size={12} /> {matFiles.length} file
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMatFiles([])
+                              if (fileMatInputRef.current) fileMatInputRef.current.value = ''
+                            }}
+                            className="text-xs text-slate-400 hover:text-destructive transition cursor-pointer"
+                            title="Hapus semua berkas materi"
+                          >
+                            Hapus Semua
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    <input
+                      ref={fileMatInputRef}
+                      multiple
+                      type="file"
+                      name="file_materi"
+                      id="in_file_materi"
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files.length > 0) {
+                          handleAddMateriFiles(Array.from(e.target.files))
+                          e.target.value = ''
+                        }
+                      }}
+                      className="hidden"
+                    />
+
+                    {matFiles.length === 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => fileMatInputRef.current?.click()}
+                        className="w-full flex flex-col items-center justify-center py-4 px-3 border-2 border-dashed border-slate-300 hover:border-slate-400 hover:bg-slate-100/60 rounded-lg bg-white/80 transition cursor-pointer text-center group"
+                      >
+                        <div className="p-2 bg-slate-100 rounded-full text-slate-600 group-hover:scale-110 transition mb-1.5">
+                          <FileUp size={18} />
+                        </div>
+                        <p className="text-xs sm:text-sm font-semibold text-slate-700 group-hover:text-slate-900">
+                          Pilih / Tarik Berkas Materi
+                        </p>
+                        <p className="text-xs text-slate-500 mt-1">
+                          PDF, DOCX, XLSX (Maks. 5MB)
+                        </p>
+                      </button>
+                    ) : (
+                      <div>
+                        {/* Material Files Preview List */}
+                        <div className="space-y-2 max-h-48 overflow-y-auto p-1.5 bg-white/70 rounded-lg border border-slate-200">
+                          {matFiles.map((file, idx) => (
+                            <MaterialItem
+                              key={`${file.name}-${idx}`}
+                              file={file}
+                              onRemove={() => removeMatFile(idx)}
+                              onPreview={(url) =>
+                                setFilePreview({
+                                  isOpen: true,
+                                  fileUrl: url,
+                                  fileName: file.name,
+                                  fileType: 'pdf',
+                                })
+                              }
+                              formatSize={formatFileSize}
+                            />
+                          ))}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => fileMatInputRef.current?.click()}
+                          className="w-full mt-2 py-1.5 px-3 border border-dashed border-slate-300 hover:border-slate-400 rounded-md bg-white text-slate-700 hover:text-slate-900 text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                        >
+                          <Plus size={14} />
+                          <span>Tambah Berkas Lain</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* RIGHT COLUMN: Catatan AI, Lampiran & Aksi Kirim (6 cols on md, 7 on xl) */}
-          <div className="md:col-span-6 xl:col-span-7 flex flex-col gap-3.5 justify-between">
+          {/* RIGHT COLUMN: Catatan AI Workbench & Aksi Kirim (6 cols on md, 6 on xl) */}
+          <div className="md:col-span-6 xl:col-span-6 flex flex-col gap-3.5 justify-between">
             {/* Catatan + Dikte Suara & AI Enhance Section */}
-            <div className="bg-slate-50/80 p-3 sm:p-4 rounded-xl border border-slate-200/80 flex flex-col gap-2.5">
+            <div className="bg-slate-50/80 p-3 sm:p-4 rounded-xl border border-slate-200/80 flex flex-col flex-1 gap-2.5">
               <div className="flex flex-wrap items-center justify-between gap-2 pb-1.5 border-b border-slate-200">
                 <div className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                   <span className="w-1.5 h-3.5 bg-primary rounded-full" />
@@ -605,241 +837,16 @@ export function InputFormClient({ pegawaiList }: InputFormClientProps) {
               <textarea
                 name="catatan"
                 id="in_catatan"
-                rows={4}
+                rows={12}
                 value={catatanText}
                 onChange={(e) => setCatatanText(e.target.value)}
                 placeholder="Tuliskan ringkasan pokok pembahasan, keputusan, dan tindak lanjut hasil kegiatan di sini (bisa gunakan Dikte Suara)..."
                 required
-                className={`w-full p-3 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary focus:border-primary bg-white transition outline-none resize-none min-h-[130px] sm:min-h-[140px] leading-relaxed ${
+                className={`w-full p-3.5 text-sm rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary focus:border-primary bg-white transition outline-none resize-y min-h-[380px] sm:min-h-[440px] flex-1 leading-relaxed ${
                   isEnhancing ? 'opacity-50' : ''
                 } ${isListening ? 'border-rose-300 ring-2 ring-rose-200' : ''}`}
                 disabled={isEnhancing || isSubmitting}
               />
-            </div>
-
-            {/* Lampiran Dual Dropzone Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Foto Upload Card */}
-              <div
-                onDragOver={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                }}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                    handleAddDocFiles(Array.from(e.dataTransfer.files))
-                  }
-                }}
-                className="bg-sky-50/60 p-3.5 rounded-xl border border-sky-100 flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label
-                      htmlFor="in_file_dok"
-                      className="text-xs sm:text-sm font-bold text-slate-800 flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Camera size={16} className="text-primary" />
-                      <span>Dokumentasi (Foto)</span>
-                    </label>
-                    {docFiles.length > 0 && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs bg-primary/20 text-sky-900 font-bold px-2 py-0.5 rounded flex items-center gap-1">
-                          <CheckCircle2 size={12} /> {docFiles.length} foto
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setDocFiles([])
-                            if (fileDokInputRef.current) fileDokInputRef.current.value = ''
-                          }}
-                          className="text-xs text-slate-400 hover:text-destructive transition cursor-pointer"
-                          title="Hapus semua foto"
-                        >
-                          Hapus Semua
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  <input
-                    ref={fileDokInputRef}
-                    multiple
-                    type="file"
-                    name="file_dok"
-                    id="in_file_dok"
-                    accept="image/*"
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files.length > 0) {
-                        handleAddDocFiles(Array.from(e.target.files))
-                        e.target.value = ''
-                      }
-                    }}
-                    className="hidden"
-                  />
-
-                  {docFiles.length === 0 ? (
-                    <button
-                      type="button"
-                      onClick={() => fileDokInputRef.current?.click()}
-                      className="w-full flex flex-col items-center justify-center py-4 px-3 border-2 border-dashed border-sky-200 hover:border-primary hover:bg-sky-100/50 rounded-lg bg-white/80 transition cursor-pointer text-center group"
-                    >
-                      <div className="p-2 bg-sky-100 rounded-full text-primary group-hover:scale-110 transition mb-1.5">
-                        <ImagePlus size={18} />
-                      </div>
-                      <p className="text-xs sm:text-sm font-semibold text-slate-700 group-hover:text-primary">
-                        Pilih / Tarik Foto ke Sini
-                      </p>
-                      <p className="text-xs text-slate-500 mt-1">
-                        Format JPG, PNG, WEBP (Bisa multiple)
-                      </p>
-                    </button>
-                  ) : (
-                    <div>
-                      {/* Photo Previews Grid */}
-                      <div className="grid grid-cols-3 gap-2 max-h-40 overflow-y-auto p-1.5 bg-white/70 rounded-lg border border-sky-100">
-                        {docFiles.map((file, idx) => (
-                          <PhotoThumbnail
-                            key={`${file.name}-${idx}`}
-                            file={file}
-                            onRemove={() => removeDocFile(idx)}
-                            onPreview={(url) =>
-                              setFilePreview({
-                                isOpen: true,
-                                fileUrl: url,
-                                fileName: file.name,
-                                fileType: 'image',
-                              })
-                            }
-                            formatSize={formatFileSize}
-                          />
-                        ))}
-                        {/* Mini Add Button */}
-                        <button
-                          type="button"
-                          onClick={() => fileDokInputRef.current?.click()}
-                          className="aspect-square rounded-lg border-2 border-dashed border-sky-300 hover:border-primary bg-white/70 hover:bg-sky-100/70 flex flex-col items-center justify-center text-sky-700 hover:text-primary transition cursor-pointer"
-                          title="Tambah foto lagi"
-                        >
-                          <Plus size={18} />
-                          <span className="text-[10px] font-bold mt-0.5">Tambah</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Materi Upload Card */}
-              <div
-                onDragOver={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                }}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                    handleAddMateriFiles(Array.from(e.dataTransfer.files))
-                  }
-                }}
-                className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-200 flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label
-                      htmlFor="in_file_materi"
-                      className="text-xs sm:text-sm font-bold text-slate-800 flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <FileText size={16} className="text-slate-600" />
-                      <span>Materi (PDF/Docx)</span>
-                    </label>
-                    {matFiles.length > 0 && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs bg-slate-200 text-slate-800 font-bold px-2 py-0.5 rounded flex items-center gap-1">
-                          <CheckCircle2 size={12} /> {matFiles.length} file
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setMatFiles([])
-                            if (fileMatInputRef.current) fileMatInputRef.current.value = ''
-                          }}
-                          className="text-xs text-slate-400 hover:text-destructive transition cursor-pointer"
-                          title="Hapus semua berkas materi"
-                        >
-                          Hapus Semua
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  <input
-                    ref={fileMatInputRef}
-                    multiple
-                    type="file"
-                    name="file_materi"
-                    id="in_file_materi"
-                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files.length > 0) {
-                        handleAddMateriFiles(Array.from(e.target.files))
-                        e.target.value = ''
-                      }
-                    }}
-                    className="hidden"
-                  />
-
-                  {matFiles.length === 0 ? (
-                    <button
-                      type="button"
-                      onClick={() => fileMatInputRef.current?.click()}
-                      className="w-full flex flex-col items-center justify-center py-4 px-3 border-2 border-dashed border-slate-300 hover:border-slate-400 hover:bg-slate-100/60 rounded-lg bg-white/80 transition cursor-pointer text-center group"
-                    >
-                      <div className="p-2 bg-slate-100 rounded-full text-slate-600 group-hover:scale-110 transition mb-1.5">
-                        <FileUp size={18} />
-                      </div>
-                      <p className="text-xs sm:text-sm font-semibold text-slate-700 group-hover:text-slate-900">
-                        Pilih / Tarik Berkas Materi
-                      </p>
-                      <p className="text-xs text-slate-500 mt-1">
-                        PDF, DOCX, XLSX (Maks. 5MB)
-                      </p>
-                    </button>
-                  ) : (
-                    <div>
-                      {/* Material Files Preview List */}
-                      <div className="space-y-2 max-h-40 overflow-y-auto p-1.5 bg-white/70 rounded-lg border border-slate-200">
-                        {matFiles.map((file, idx) => (
-                          <MaterialItem
-                            key={`${file.name}-${idx}`}
-                            file={file}
-                            onRemove={() => removeMatFile(idx)}
-                            onPreview={(url) =>
-                              setFilePreview({
-                                isOpen: true,
-                                fileUrl: url,
-                                fileName: file.name,
-                                fileType: 'pdf',
-                              })
-                            }
-                            formatSize={formatFileSize}
-                          />
-                        ))}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => fileMatInputRef.current?.click()}
-                        className="w-full mt-2 py-1.5 px-3 border border-dashed border-slate-300 hover:border-slate-400 rounded-md bg-white text-slate-700 hover:text-slate-900 text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer"
-                      >
-                        <Plus size={14} />
-                        <span>Tambah Berkas Lain</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
             </div>
 
             {/* Submit Button */}

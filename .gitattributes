@@ -1,0 +1,65 @@
+# ─── Default Behavior ─────────────────────────────────────────────────────────
+# Normalkan line endings ke LF di repository, checkout sesuai OS
+* text=auto eol=lf
+
+# ─── Source Code ──────────────────────────────────────────────────────────────
+*.ts        text eol=lf
+*.tsx       text eol=lf
+*.js        text eol=lf
+*.jsx       text eol=lf
+*.mjs       text eol=lf
+*.cjs       text eol=lf
+*.css       text eol=lf
+*.json      text eol=lf
+*.md        text eol=lf
+*.mdx       text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.env       text eol=lf
+*.example   text eol=lf
+*.gs        text eol=lf
+
+# ─── Shell & Config ───────────────────────────────────────────────────────────
+*.sh        text eol=lf
+.husky/*    text eol=lf
+Makefile    text eol=lf
+
+# ─── Binary & Media — jangan di-diff, jangan di-merge ────────────────────────
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.webp      binary
+*.ico       binary
+*.svg       binary
+*.pdf       binary
+*.xlsx      binary
+*.xls       binary
+*.zip       binary
+*.gz        binary
+*.woff      binary
+*.woff2     binary
+*.ttf       binary
+*.eot       binary
+
+# ─── Export-ignore: file ini tidak diikutkan dalam `git archive` / release ────
+# Agent, tool, dan dokumentasi internal — tidak relevan untuk pengguna akhir
+.agents/            export-ignore
+.agent/             export-ignore
+.specify/           export-ignore
+.superpowers/       export-ignore
+.impeccable/        export-ignore
+.gitignore          export-ignore
+.gitattributes      export-ignore
+.eslintrc.json      export-ignore
+.husky/             export-ignore
+.github/            export-ignore
+tsconfig.json       export-ignore
+vitest.config.mjs   export-ignore
+tests/              export-ignore
+docs/               export-ignore
+AGENTS.md           export-ignore
+GEMINI.md           export-ignore
+DESIGN.md           export-ignore
+PRODUCT.md          export-ignore
+skills-lock.json    export-ignore

@@ -1,52 +1,61 @@
-# dependencies
-node_modules
+# ─── Dependencies ─────────────────────────────────────────────────────────────
+node_modules/
 /.pnp
 .pnp.js
 
-# testing
-/coverage
-
-# next.js
+# ─── Next.js Build Artifacts ──────────────────────────────────────────────────
 /.next/
 /out/
+/build/
+/dist/
 
-# production
-/build
+# ─── Testing ──────────────────────────────────────────────────────────────────
+/coverage/
+*.tsbuildinfo
 
-# misc
+# ─── TypeScript ───────────────────────────────────────────────────────────────
+next-env.d.ts
+
+# ─── Environment & Secrets ────────────────────────────────────────────────────
+# Semua .env DILARANG commit — hanya .env.example yang aman
+.env
+.env.local
+.env.*.local
+.env.development.local
+.env.test.local
+.env.production
+.env.production.local
+
+# ─── Google Apps Script (produksi — versi contoh: code.example.gs) ────────────
+code.gs
+
+# ─── Deployment ───────────────────────────────────────────────────────────────
+.vercel/
+
+# ─── OS & Editor Cruft ────────────────────────────────────────────────────────
 .DS_Store
+Thumbs.db
 *.pem
 
-# debug
+# ─── Debug Logs ───────────────────────────────────────────────────────────────
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.pnpm-debug.log*
 
-# local env files
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-.env.production
-.env.*.local
-
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-
-# backup
-_backup_old/
-
-# scratch
-scratch/
-
+# ─── AI Agent Runtime Directories ─────────────────────────────────────────────
+# Skill & tool metadata untuk berbagai AI coding agent — TIDAK relevan produksi
 .agents/
+.agent/
 .specify/
 .superpowers/
+.impeccable/
 
-# google apps script credentials
-code.gs
+# ─── AI Agent Docs (lokal, bukan untuk repo) ──────────────────────────────────
+DESIGN.md
+PRODUCT.md
+skills-lock.json
+
+# ─── Backup & Scratch ─────────────────────────────────────────────────────────
+_backup_old/
+scratch/

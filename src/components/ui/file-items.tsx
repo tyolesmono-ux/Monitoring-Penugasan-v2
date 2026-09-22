@@ -1,7 +1,14 @@
 'use client'
 
-import { useMemo, useEffect } from 'react'
-import { Eye, Trash2, FileText, FileSpreadsheet, File as FileIcon } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import {
+  Eye,
+  Trash2,
+  FileText,
+  FileSpreadsheet,
+  File as FileIcon,
+  Image as ImageIcon,
+} from 'lucide-react'
 
 export interface FileItemProps {
   file: File
@@ -16,29 +23,55 @@ export function PhotoThumbnail({
   onPreview,
   formatSize,
 }: FileItemProps) {
-  const url = useMemo(() => {
+  const [url, setUrl] = useState<string>('')
+  const [hasError, setHasError] = useState(false)
+
+  useEffect(() => {
+    if (!file) return
+    let objectUrl = ''
     try {
-      return URL.createObjectURL(file)
+      objectUrl = URL.createObjectURL(file)
+      setUrl(objectUrl)
+      setHasError(false)
     } catch {
-      return ''
+      setUrl('')
+      setHasError(true)
+    }
+
+    return () => {
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl)
+      }
     }
   }, [file])
 
-  useEffect(() => {
-    return () => {
-      if (url) URL.revokeObjectURL(url)
-    }
-  }, [url])
-
   return (
     <div className="group relative aspect-square rounded-lg overflow-hidden border border-slate-200 bg-slate-100 shadow-2xs">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={url} alt={file.name} className="w-full h-full object-cover" />
+      {url && !hasError ? (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img
+          src={url}
+          alt={file.name}
+          className="w-full h-full object-cover"
+          onError={() => setHasError(true)}
+        />
+      ) : (
+        <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100 text-slate-400 p-2 text-center">
+          <ImageIcon size={20} className="mb-1 text-slate-400" />
+          <span className="text-[10px] truncate max-w-full text-slate-500 font-medium">
+            {file.name}
+          </span>
+        </div>
+      )}
+
       <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-1.5">
         <button
           type="button"
-          onClick={() => onPreview(url)}
-          className="p-1.5 rounded-md bg-white/90 text-slate-800 hover:text-primary transition cursor-pointer"
+          onClick={() => {
+            if (url) onPreview(url)
+          }}
+          disabled={!url || hasError}
+          className="p-1.5 rounded-md bg-white/90 text-slate-800 hover:text-primary transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           title="Lihat foto besar"
         >
           <Eye size={14} />
@@ -69,20 +102,27 @@ export function MaterialItem({
   const isExcel = /\.(xls|xlsx)$/i.test(file.name)
   const isWord = /\.(doc|docx)$/i.test(file.name)
 
-  const url = useMemo(() => {
-    if (!isPdf) return ''
-    try {
-      return URL.createObjectURL(file)
-    } catch {
-      return ''
-    }
-  }, [file, isPdf])
+  const [url, setUrl] = useState<string>('')
 
   useEffect(() => {
-    return () => {
-      if (url) URL.revokeObjectURL(url)
+    if (!isPdf || !file) {
+      setUrl('')
+      return
     }
-  }, [url])
+    let objectUrl = ''
+    try {
+      objectUrl = URL.createObjectURL(file)
+      setUrl(objectUrl)
+    } catch {
+      setUrl('')
+    }
+
+    return () => {
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl)
+      }
+    }
+  }, [file, isPdf])
 
   const handlePreview = () => {
     if (url) onPreview(url)
